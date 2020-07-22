@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Layus' short musings - Nix overlays: the fixpoint and the (over)layer cake</title>
+        <link rel="stylesheet" href="../css/default.css" />
+    </head>
+    <body>
+        <header class="logo">
+            <a href="https://www.guedelon.fr/en/galerie_16.html">
+                <img src="../images/layus.png" alt style="width: 15rem;" />
+            </a>
+        </header>
+        <header class="blog-title">
+            <div class="blog-title-container">
+                <a href="../">Layus' short musings</a>
+            </div>
+        </header>
+        <nav>
+            <div class="sidebar-container">
+                <a href="../">Home</a>
+                <a href="../about.html">About</a>
+                <a href="../contact.html">Contact</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </nav>
+
+        <main role="main">
+            <!-- <h1>Nix overlays: the fixpoint and the (over)layer cake</h1> -->
+            <article>
+    <section class="header">
+        Posted on June 12, 2020
+        
+    </section>
+    <section>
+        <h1 id="the-fixpoint-and-the-overlayer-cake">The fixpoint and the (over)layer cake</h1>
+<p>I am a big fan of the overlay system that Nix uses to allow modular tweaks to the otherwise monolithic and centralized nixpkgs. But the rules about their two arguments are crazy. Why should packages come from <code>self</code> and other things from <code>super</code>. Is it really important ?</p>
+<blockquote>
+<p>As I got started digging into these overlays and their mechanics, the post became a bit too involved. I decided to split it in two parts. This first part describes how overlays work, and why they have been implemented in that fashion. The <a href="../posts/nix-super-overlays">next</a> will dig deeper into the rules for a good use of <code>self</code> and <code>super</code>.</p>
+</blockquote>
+<p>The overlay system is best described by its architect, Nicolas B. Pierron (@<a href="https://github.com/nbp">nbp</a>) in his NixCon 2017 <a href="https://www.youtube.com/watch?v=W85mF1zWA2o">talk</a>. For those who, like me, prefer text resources for learning, I should also mention the <a href="https://nbp.github.io/slides/NixCon/2017.NixpkgsOverlays/">slides</a> of the presentation, as well as the relevant entries in the <a href="https://nixos.org/nixpkgs/manual/#chap-overlays">nixpkgs manual</a> and the <a href="https://nixos.wiki/wiki/Overlays">nixos wiki</a>.</p>
+<h2 id="overlays-primer">Overlays primer</h2>
+<p>Nixpkgs is a large set of nix packages maintained by the community. It can be seen as a mapping between package names and their definition.</p>
+<p>For representation purposes, we will make the assumption that a package (a <em>derivation</em> in nix parlance) is the result of calling a <em>deriving</em> (i.e. building) function with <em>i)</em> a version number and <em>ii)</em> other derivations as dependencies.</p>
+<p>Here is a simplified view of <code>nixpkgs</code> as can be obtained with a trivial call like <code>nix import &lt;nixpkgs&gt; {}</code>.</p>
+<figure>
+<img src="../images/2020-06-12-nix-overlays/nixpkgs.png" class="image-very-large" alt /><figcaption>The vanilla nixpkgs package set</figcaption>
+</figure>
+<p>We see that packages dependencies form a directed acyclic graph, a.k.a a <em>DAG</em>. Such graphs can be seen as simple trees for the majority of purposes. In such a graph, circular dependencies are impossible. While technically the Nix language allows to define such loops, they lead to <code>error: infinite recursion encountered</code> during evaluation. Properly behaved package sets do not do that, and so neither does nixpkgs.</p>
+<p>Leaf packages are not used by any other packages. This is the case for <code>firefox</code> in our contrived example. A few bootstrap packages do not depend on any other packages. In our example, it is <code>stdenv</code>.</p>
+<p>Nixpkgs is a huge monolith of code containing <a href="https://repology.org/repository/nix_unstable">over 60k packages</a>. In 2016, it even appeared in the <a href="https://web.archive.org/web/20160914231036/https://octoverse.github.com/">2016 edition of Github’s “State of the Octoverse”</a> report as the #6 repo in terms of code reviewers. While busy, the repository cannot accept every custom package of nixpkgs users. Nor can it accept private, licensed or in development packages. Enter “overlays”. The feature allows to make additions and modifications to the locally available nixpkgs package set.</p>
+<p>To add a new package or override an existing package, overlays merge the new definitions inside the main package set. This is an attribute set <em>update</em> operation, as defined by the corresponding nix <a href="https://nixos.org/nix/manual/#table-operators">“<code>//</code>” operator</a>.</p>
+<h2 id="a-naive-overlay">A naive overlay</h2>
+<p>Assuming you want a firefox built without pulseaudio, and prefer to use v71 instead of v70.1 provided in nixpkgs. You would have to define a new firefox derivation, and merge it into nixpkgs like this:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode nix"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1"></a><span class="bu">let</span></span>
+<span id="cb1-2"><a href="#cb1-2"></a>  <span class="ex">nixpkgs</span> = import <span class="op">&lt;</span>nixpkgs<span class="op">&gt;</span> {};</span>
+<span id="cb1-3"><a href="#cb1-3"></a>  <span class="ex">custom</span> = {</span>
+<span id="cb1-4"><a href="#cb1-4"></a>    <span class="ex">firefox</span> = derive(<span class="st">&quot;71&quot;</span>, nixpkgs.zlib, nixpkgs.gcc, nixpkgs.stdenv)</span>
+<span id="cb1-5"><a href="#cb1-5"></a>  }</span>
+<span id="cb1-6"><a href="#cb1-6"></a><span class="kw">in</span></span>
+<span id="cb1-7"><a href="#cb1-7"></a>  <span class="ex">nixpkgs</span> // custom</span></code></pre></div>
+<p>This gets you an updated package set where the original definition of firefox is no more visible. The attribute <code>firefox</code> references your new, custom version.</p>
+<figure>
+<img src="../images/2020-06-12-nix-overlays/nixpkgs+ff.png" class="image-very-large" alt /><figcaption>An overlay for firefox</figcaption>
+</figure>
+<p>In the resulting package set, the attribute <code>firefox</code> will reference your new package. Such overlays can also be used to add new packages, by picking an attribute name that is not yet in use. For a custom version of firefox, it would also make sense to give it a unique name, like <code>firefox-custom</code>.</p>
+<p>This way of overlaying packages shows its limits when you want to modify an internal package in the dependency tree. Assuming that, for some reason, you would prefer your system to be compiled with gcc v8.1.1 instead of the provided v7.2.0. Working in the same way as above, you would obtain a package set where the attribute <code>gcc</code> references your new package, but all of the other packages are still being compiled with the old gcc. This is highlighted by the red references edges in our representation of package sets.</p>
+<figure>
+<img src="../images/2020-06-12-nix-overlays/nixpkgs+zlib.png" class="image-very-large" alt /><figcaption>The gcc overlay is not picked up by existing packages</figcaption>
+</figure>
+<p>Working only with attribute sets update (<code>//</code>), there is no way to propagate changes to an existing package set. To propagate overlays to existing packages, we need support from nixpkgs itself.</p>
+<h2 id="the-nixpkgs-fixpoint">The nixpkgs fixpoint</h2>
+<p>To support overlays, <span class="citation" data-cites="nbp">@nbp</span> modified nixpkgs in such a way that it does not depend on itself directly, but on some other theoretical package set that should contain roughly the sames packages as itself. Technically, nixpkgs is designed as a function that takes as input all the dependencies used by nixpkgs. At this point, I think a picture is worth a thousand linguistic wandering.</p>
+<figure>
+<img src="../images/2020-06-12-nix-overlays/nixpkgs_layers.png" class="image-very-large" alt /><figcaption>Nixpkgs uses inputs from a elsewhere</figcaption>
+</figure>
+<p>Of course, the only package set that could possibly provide all of the required dependencies is nixpkgs itself. <em>No problem!</em> Let’s just pass it as the input set to nixpkgs.</p>
+<figure>
+<img src="../images/2020-06-12-nix-overlays/nixpkgs_layers2.png" class="image-very-large" alt /><figcaption>Nixpkgs, built on top of nixpkgs</figcaption>
+</figure>
+<p>You probably already heard it, but nixpkgs is implemented as a fixpoint. The term may be frightening at first glance, but the idea is just to feed the nixpkgs function to itself, forever, so that there are no more dangling dependencies in nixpkgs. In terms of code, it amounts to an infinitely recursive definition.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode nix"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1"></a><span class="bu">let</span></span>
+<span id="cb2-2"><a href="#cb2-2"></a>  <span class="ex">nixpkgs_fun</span> = self: {</span>
+<span id="cb2-3"><a href="#cb2-3"></a>    <span class="ex">firefox</span> = derive(<span class="st">&quot;70.1&quot;</span>, self.pulseaudio, self.zlib, ...)</span>
+<span id="cb2-4"><a href="#cb2-4"></a>    <span class="ex">pulseaudio</span> = ...</span>
+<span id="cb2-5"><a href="#cb2-5"></a>    <span class="ex">...</span></span>
+<span id="cb2-6"><a href="#cb2-6"></a>  };</span>
+<span id="cb2-7"><a href="#cb2-7"></a>  <span class="ex">nixpkgs</span> = nixpkgs_fun nixpkgs</span>
+<span id="cb2-8"><a href="#cb2-8"></a><span class="kw">in</span></span>
+<span id="cb2-9"><a href="#cb2-9"></a>  <span class="ex">nixpkgs</span></span></code></pre></div>
+<p>Fear not, this recursion is not infinite in practice, because the Nix language is lazy. It is even quite efficient, because the definition of <code>nixpkgs</code> is shared. Which means that instead of copying the same nixpkgs function over and over, the pacakge set is made to reuse itself, the same actual value, computed lazily.</p>
+<h2 id="nixpkgs-overlays">Nixpkgs overlays</h2>
+<p>In nixpkgs overlays are added before feeding nixpkgs into itself. When the recursion is applied, nixpkgs uses the full stack of overlays to look for dependencies. This means that nixpkgs will catch the updated packages. I our former example with gcc, it means that all the packages depending on gcc will find the updated version, and build with it.</p>
+<figure>
+<img src="../images/2020-06-12-nix-overlays/nixpkgs_layers_plus.png" class="image-very-large" alt /><figcaption>The vanilla nixpkgs package set</figcaption>
+</figure>
+<blockquote>
+<p>Actually building this package set will take some time, as none of the newly defined packages exist in the binary cache. You will be rebuilding your whole package set from scratch.</p>
+</blockquote>
+<p>This kind of indirect references to other packages, so as to ply nicely with the nixpkgs fixpoint is done through the <code>self</code> argument of an overlay. That is, the first argument to the overlay function, as it is quite easy (and frequent) to mistype the arguments order. For the record, <code>self: super:</code> is the only right version.</p>
+<h2 id="the-super-nixpkgs">The <code>super</code> nixpkgs</h2>
+<p>But what is this <code>super</code> argument useful for then ? In case you want to make some modifications to an existing package. Like a patch for example. Let’s assume that you need a specific patch for your firefox. You could define an overlay like this.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode nix"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1"></a><span class="co"># In real life scenarios,</span></span>
+<span id="cb3-2"><a href="#cb3-2"></a><span class="co"># you would probably patch firefox-unwrapped instead</span></span>
+<span id="cb3-3"><a href="#cb3-3"></a></span>
+<span id="cb3-4"><a href="#cb3-4"></a><span class="ex">self</span>: super:</span>
+<span id="cb3-5"><a href="#cb3-5"></a><span class="kw">{</span></span>
+<span id="cb3-6"><a href="#cb3-6"></a>  <span class="ex">firefox</span> = super.firefox.overrideAttrs (oldAttrs: {</span>
+<span id="cb3-7"><a href="#cb3-7"></a>    <span class="ex">patches</span> = (oldAttrs.patches or []) <span class="ex">++</span> [ ./fixit.patch ]<span class="kw">;</span></span>
+<span id="cb3-8"><a href="#cb3-8"></a>  <span class="kw">}</span>;</span>
+<span id="cb3-9"><a href="#cb3-9"></a>}</span></code></pre></div>
+<p>Using <code>self</code> here would make no sense, because it will end up being the very firefox you are trying to define. Nix will detect this loop, and raise the painful <code>error: infinite recursion encountered</code> described above.</p>
+<p>It makes little sense to use <code>self.fooBar</code> in the definition of <code>foobar</code> itself. After all, the names have been chosen for their similarity with inheritance models. <code>self</code> (sometimes called <code>this</code>) is the final object, while <code>super</code> is a reference to the previous class in the inheritance hierarchy.</p>
+<p>How much sense would this code make ?</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode java"><code class="sourceCode java"><span id="cb4-1"><a href="#cb4-1"></a><span class="kw">class</span> Animal {</span>
+<span id="cb4-2"><a href="#cb4-2"></a>  <span class="bu">String</span> <span class="fu">who</span>() {</span>
+<span id="cb4-3"><a href="#cb4-3"></a>    <span class="kw">return</span> <span class="st">&quot;animal&quot;</span>;</span>
+<span id="cb4-4"><a href="#cb4-4"></a>  }</span>
+<span id="cb4-5"><a href="#cb4-5"></a>}</span>
+<span id="cb4-6"><a href="#cb4-6"></a></span>
+<span id="cb4-7"><a href="#cb4-7"></a><span class="co">/// Just as for overlays, you should have used @super@</span></span>
+<span id="cb4-8"><a href="#cb4-8"></a><span class="kw">class</span> Dog <span class="kw">extends</span> Animal {</span>
+<span id="cb4-9"><a href="#cb4-9"></a>  <span class="bu">String</span> <span class="fu">who</span>() {</span>
+<span id="cb4-10"><a href="#cb4-10"></a>    <span class="kw">this</span>.<span class="fu">who</span>() + <span class="st">&quot; : dog&quot;</span>;</span>
+<span id="cb4-11"><a href="#cb4-11"></a>  }</span>
+<span id="cb4-12"><a href="#cb4-12"></a>}</span></code></pre></div>
+<p>Now, you have all the keys to understand the concise diagram for overlays found on the nixos wiki. If you squint hard enough, you can even see the class diagram in there :-).</p>
+<figure>
+<img src="../images/2020-06-12-nix-overlays/overlay-self-super.png" class="image-very-large" alt /><figcaption>Overlays data flow – taken from the <a href="https://nixos.wiki/wiki/Overlays#Data_flow_of_overlays">Nixos Wiki</a></figcaption>
+</figure>
+<h2 id="rules-rules-rules">Rules, rules, rules</h2>
+<p>Now, just like three years ago, some corner cases make it hard to know when to use <code>super</code> and when to use <code>self</code>. There are some good examples in the NixCon presentation, but they do not make everything clear.</p>
+<p>For packages, the rule is simple. Use <code>self</code>, except when you want to override some pre-existing recipe. In that case use <code>super</code>. The rule conforms to the inheritance model for classes.</p>
+<p>For functions, and other values, it seems that <code>super</code> is the way to go. And it bugs me terribly since I defined a helper overlay for helper functions. As overlays have a precise order, using <code>super</code> may not find the function if your overlay happens to be included before the lib overlay…</p>
+<p>After some investigations, it turns out the reason behind using <code>self</code> only for packages is <em>grafting</em>. And that concept, as well as its impact on the design of overlays, will be explored in the next post.</p>
+    </section>
+</article>
+
+        </main>
+
+        <footer>
+            Site proudly generated by
+            <a href="http://jaspervdj.be/hakyll">Hakyll</a>
+        </footer>
+    </body>
+</html>

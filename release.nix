@@ -19,14 +19,14 @@ let
            ];
 
       #blog = hpNew.callCabal2nix "blog" ./. { };
-      blog = pkgs.haskell.packages.${compiler}.callPackage ({ mkDerivation, base, hakyll, stdenv }:
+      blog = pkgs.haskell.packages.${compiler}.callPackage ({ mkDerivation, base, hakyll, hakyll-sass, stdenv }:
         mkDerivation {
           pname = "blog-hakyll";
           version = "0.1.0.0";
           src = ./.;
           isLibrary = false;
           isExecutable = true;
-          executableHaskellDepends = [ base hakyll ];
+          executableHaskellDepends = [ base hakyll hakyll-sass ];
           license = "unknown";
           hydraPlatforms = stdenv.lib.platforms.none;
         }
@@ -48,7 +48,7 @@ in
     buildInputs = with haskellPackages; [
       ghcid
       hlint       # or ormolu
-      niv
+      pkgs.niv
       pkgs.cacert # needed for niv
       pkgs.nix    # needed for niv
     ];

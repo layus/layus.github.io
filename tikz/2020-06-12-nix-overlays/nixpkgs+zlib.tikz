@@ -1,0 +1,145 @@
+﻿
+\usetikzlibrary{matrix}
+\usetikzlibrary{positioning}
+\usetikzlibrary{calc,decorations.pathreplacing,shapes.misc}
+\usetikzlibrary{fit}
+
+\newcommand{\longnode}[3][]{
+	\node[code] (#2-start) {#2};
+	\node[anchor=north west,inner sep=0,outer sep=0,yshift=-1ex] (#2-chain) at (#2-start.text) {\phantom{x}};
+	\begin{scope}[code,start chain=#2 going base right, node distance=0, every node/.append style={on chain=#2,font=\ttfamily\slshape,gray}]
+		\chainin(#2-chain);
+		\node {\ =\ \ };
+		\node () {\textit{derive}(};
+		\foreach \n [count=\c] in {#3} {
+			\ifnum\c>1
+				\node () {,};
+			\fi
+			\node (#2-\n) {\n};
+		};
+		\node (#2-end) {)};
+	\end{scope}
+    %\node[draw,inner sep=0,outer sep=0,fit=(#2-start)(#2-end)] (#2) {};
+}
+
+\tikzstyle{show control points}=[
+	decoration={show path construction, curveto code={
+		\draw [-, blue, dashed]
+			(\tikzinputsegmentfirst) -- (\tikzinputsegmentsupporta)%
+			node [at end, circle, , draw, solid, red, inner sep=.1pt,outer sep=0,anchor=center]{};
+		\draw [-, blue, dashed]
+			(\tikzinputsegmentsupportb) -- (\tikzinputsegmentlast)
+			node [at start, circle, draw, solid, red, inner sep=.1pt,outer sep=0,anchor=center]{};
+		}
+	},
+	postaction=decorate
+]
+
+\tikzstyle{ref}=[
+	to path={ .. controls (\tikztostart |- \tikztotarget) .. (\tikztotarget) \tikztonodes},
+	->,
+	shorten <= -2,
+	shorten >=2,
+	%show control points,
+]
+
+
+\begin{tikzpicture}[
+   every node/.style={
+		anchor=north west,
+        inner xsep=0,
+		outer xsep=0,
+		%draw,
+		text depth=-5pt,
+		text height=+5pt,
+		%draw,
+	},
+]
+%\draw[gray!50] (-1,-5) grid (10, 1);
+
+\begin{scope}[
+	yshift=0,
+	%every node/.append style={yslant=0.5,xslant=-1},
+	every node/.append style={transform shape},
+	yslant=0.5,xslant=-1,
+	%transform canvas={yslant=.5,xslant=-1},
+	start chain=1 going {at=(\tikzchainprevious.north west),shift={(0,-1.2cm)}},
+	%node distance=10pt,
+	code/.style={
+		font={\ttfamily},
+		on chain=1,
+		minimum height=1.5em, %TODO: use max font height
+		anchor=north west,
+	},
+   %ref/.append style={gray},
+]
+	%\pgftransformyslant{.5}
+
+	\draw[fill=gray!5,opacity=1] (0,0) +(-10pt,10pt) rectangle ($(10,-5.8) +(10pt, -10pt)$)
+			node[anchor=south east, rotate=-90]  {nixpkgs};
+
+    \longnode[]{firefox}{"70.1",pulseaudio,zlib,gcc,stdenv}
+	\longnode[]{pulseaudio}{..{}.}
+	\longnode[]{zlib}{"3.8.1",gcc,stdenv}
+	\longnode[]{gcc}{"7.2.0",stdenv}
+	\longnode[]{stdenv}{}
+
+	%\draw (firefox-start.north west) +(-10pt,10pt) rectangle ($(stdenv-end.south east -| firefox-end.north east) +(10pt, -10pt)$)
+	%		node[anchor=south east, rotate=-90]  {nixpkgs};
+	\draw[ref,gray!30] (gcc-stdenv) to (stdenv-start.east);
+	\draw[ref] (firefox-stdenv) to (stdenv-start);
+	\draw[ref,thick,red] (firefox-gcc) to (gcc-start);
+	\draw[ref] (firefox-zlib) to (zlib-start);
+	\draw[ref] (firefox-pulseaudio) to (pulseaudio-start);
+	\draw[ref] (zlib-stdenv) to (stdenv-start);
+	\draw[ref,thick,red] (zlib-gcc) to (gcc-start);
+
+\end{scope}
+
+
+\tikzstyle{ref}=[
+	to path={ .. controls ($(\tikztostart |- \tikztotarget) +(up:1pt)$) .. (\tikztotarget) \tikztonodes},
+	%to path={ .. controls (\tikztostart |- \tikztotarget) .. (\tikztotarget) \tikztonodes},
+	->,
+	shorten <= -2,
+	shorten >=2,
+	%show control points,
+]
+
+\begin{scope}[
+	yshift=.1cm,
+	%every node/.append style={yslant=0.5,xslant=-1},
+	every node/.append style={transform shape},
+	every edge/.append style={transform shape},
+	yslant=0.5,xslant=-1,
+	%transform canvas={yslant=.5,xslant=-1},
+	start chain=1 going {at=(\tikzchainprevious.south west),shift={(0,-10pt)}},
+	node distance=10pt,
+	code/.style={
+		font={\ttfamily},
+		on chain=1,
+		minimum height=1.5em, %TODO: use max font height
+		anchor=north west,
+	},
+   ref/.append style={thick},
+]
+	%\pgftransformyslant{.5}
+	\begin{scope}[yshift=-3.6cm]
+		\fill[fill=gray!5,opacity=.9] (0,0) +(-10pt,0pt) rectangle ($(10,-1) +(10pt, -0pt)$);
+
+	    \longnode[]{gcc}{"8.1.1",stdenv}
+		%\longnode[]{pulseaudio}{..{}.}
+		%\longnode[]{zlib}{"3.8.1",gcc,stdenv}
+		%\longnode[]{gcc}{"7.2.0",stdenv}
+		%\longnode[]{stdenv}{}
+
+		\draw[ref] (gcc-stdenv) to (stdenv-start);
+		
+		\draw[] (0,0) +(-10pt,0pt) rectangle ($(10,-1) +(10pt, -0pt)$)
+			node[anchor=south east, rotate=-90]  {my-gcc};
+
+	\end{scope}
+
+\end{scope}
+
+\end{tikzpicture}

@@ -1,0 +1,39 @@
+\PassOptionsToPackage{unicode=true}{hyperref} % options for packages loaded elsewhere
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass{minimal}
+\usepackage[paperwidth=50cm,paperheight=50cm,margin=2cm]{geometry}
+\usepackage{pgfpages}
+\usepackage{lmodern}
+\usepackage{amssymb,amsmath}
+\usepackage{ifxetex,ifluatex}
+\usepackage{fixltx2e} % provides \textsubscript
+\ifnum 0\ifxetex 1\fi\ifluatex 1\fi=0 % if pdftex
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provides euro and other symbols
+\else % if luatex or xelatex
+  \usepackage{unicode-math}
+  %\defaultfontfeatures{Ligatures=TeX,Scale=MatchLowercase}
+\fi
+\usepackage{hyperref}
+\urlstyle{same}  % don't use monospace font for urls
+
+% set default figure placement to htbp
+\makeatletter
+\def\fps@figure{htbp}
+\makeatother
+
+\author{Guillaume Maudoux}
+
+\usepackage{tikz}
+\usepackage{stackengine}
+
+\usetikzlibrary{chains}
+\usetikzlibrary{tikzmark}
+
+\begin{document}
+
+$body$
+
+\end{document}

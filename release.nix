@@ -51,6 +51,8 @@ in
       pkgs.niv
       pkgs.cacert # needed for niv
       pkgs.nix    # needed for niv
+      (pkgs.texlive.combine { inherit (pkgs.texlive) scheme-medium stackengine tikzmark; })
+      pkgs.imagemagick
     ];
     withHoogle = true;
   };

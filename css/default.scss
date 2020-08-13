@@ -287,10 +287,14 @@ footer {
   color: #444;
 }
 
-pre {
+code {
   font-family: "Ubuntu Mono";
   font-size: .8em;
+}
+
+pre {
   line-height: 1;
+  overflow-x: scroll;
 }
 
 ul {

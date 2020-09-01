@@ -1,8 +1,8 @@
 let
   sources = import ./nix/sources.nix;
 in
-{ compiler ? "ghc883"
-, pkgs ? import sources.nixpkgs { }
+{ compiler ? "ghc884"
+, pkgs ? import <nixpkgs> {} #import sources.nixpkgs { }
 }:
 
 let
@@ -53,6 +53,7 @@ in
       pkgs.nix    # needed for niv
       (pkgs.texlive.combine { inherit (pkgs.texlive) scheme-medium stackengine tikzmark; })
       pkgs.imagemagick
+      pkgs.cabal-install
     ];
     withHoogle = true;
   };

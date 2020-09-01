@@ -318,8 +318,9 @@ on the three main operations.
 The second code is more dense. It means that it takes a bit more concentration to
 break down the instructions. But overall, I love the way the essential
 operations now appear first class.
-Solving the problem in a matter of chaining (`&&>`) actions that
+Solving the problem is a matter of chaining (`&&>`) actions that
+
   - `set` values;
   - move around (`local`);
-  - `pour`, `fill` and `still` `onFree` cells.
+  - `pour`, `fill` and `still` when `on free` cells.
 

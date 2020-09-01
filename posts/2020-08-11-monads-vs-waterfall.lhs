@@ -6,6 +6,32 @@ tags: [haskell monads advent]
 Monads vs. Waterfalls
 =====================
 
+I spent some times forging a solution to an advent of code problem ([day 17, 2018](https://adventofcode.com/2018/day/17)).
+My initial algorithm was cluttered with updates to the same map, and maintaining the current position through an otherwise nice and simple recursive code.
+The result feels beatiful, and deserves its own spot in the internet.
+
+This post is a litteral haskell file. Compile and execute the [source](https://github.com/layus/layus.github.io/blob/dev/posts/2020-08-11-monads-vs-waterfall.lhs) directly with ghc.
+
+If you do not want to read the full problem statement, you basically have to let water flow in a rocky underground.
+Water can either flow freely, or remain still in pockets of rocks.
+
+          +                      +       
+                #                |     # 
+     #  #       #           #  #||||   # 
+     #  #  #                #  #~~#|     
+     #  #  #                #  #~~#|     
+     #     #                #~~~~~#|     
+     #     #                #~~~~~#|     
+     #######         ==>    #######|     
+                                   |     
+                              |||||||||  
+        #     #               |#~~~~~#|  
+        #     #               |#~~~~~#|  
+        #     #               |#~~~~~#|  
+        #######               |#######|  
+
+We start with a few imports and a main function.
+
 > import qualified Data.Map.Strict    as M
 > import Data.Map.Strict              (Map)
 > 
@@ -17,18 +43,16 @@ Monads vs. Waterfalls
 > import Text.Parsec                  (many, count, (<|>), char, noneOf, newline, eof)
 > import Text.Parsec.String           (Parser, parseFromFile)
 > import Text.Parsec.Number           (nat)
-> 
+>
 > main = do
 >     input <- getInput "input17.txt" day17parser
 >     let res  = show $ day17 input
 >         res' = show $ day17bis input
 >     putStrLn $ "Day 17 -- " <> res <> " -- " <> res'
-> 
-> -- Generic
-> 
-> type Pt = (Int, Int) 
-> type Grid = Map Pt Char
-> 
+>
+
+Then four helper functions for parsing and handling input.
+
 > -- | Get ((minX, maxX), (minY, maxY)) from a list of Pt with data
 > bounds :: Ord a => [((a, a), b)] -> ((a, a), (a, a))
 > bounds = join (***) (minimum &&& maximum) . unzip . map fst 
@@ -44,7 +68,17 @@ Monads vs. Waterfalls
 >     input <- parseFromFile (p <* eof) path 
 >     either (error . show) return input
 > 
+
+Then comes the real stuff. We define the `Pt` type for position in the grid,
+and `Grid` to represent the ground with rocks.  Follows a parser to make sense
+of the input, and one-liners to get the actual puzzle responses. We were asked
+the number of tiles with water, and then the number of tiles with still water
+only.
+
 > -- Day 17
+> 
+> type Pt = (Int, Int) 
+> type Grid = Map Pt Char
 > 
 > day17parser :: Parser Grid
 > day17parser = M.fromList . map (\p -> (p,'#')) . concat <$> parseLines line where 
@@ -53,18 +87,14 @@ Monads vs. Waterfalls
 >         [a, b, c] <- count 3 justNat
 >         let coord = if axis == 'x' then (,) a else flip (,) a
 >         return $ map coord (enumFromTo b c)
-> 
-> showRocks :: Grid -> String
-> showRocks grid = unlines [ [ M.findWithDefault ' ' (x, y) grid 
->                            | x <- [minX .. maxX] ] 
->                          | y <- [minY .. maxY] ]
->   where ((minX, maxX), (minY, maxY)) = bounds $ M.toList grid
-> 
+>
+> -- # tiles with water, that is # non-rock tiles.
 > day17 = length . filter (/= '#') . M.elems
+> -- # still water tiles
 > day17bis = length . filter (== '~') . M.elems
 
 General idea
-============
+------------
 
 We proceed by propagating the flow in different directions.
 Each propagation function returns a boolean to tell whether we
@@ -74,125 +104,22 @@ On overflows, we propagate in other directions, or mark water still.
 This is reflected by three operation. Pouring (down), filling (left and
 right) and "stilling" (marking water as still).
 
-The algorithm is a bit convoluted because we mark the previous cell, and
-test the next one for being free. We constrain ourselves to invoke
-operations on free cells.
+The algorithm is a counter-intuitive we mark the current cell unconditionally and
+test the next one for being free.
+That is actually an invariant: always call the flow operators on a free cell.
 The only rationale for this rule is to mark cells at only one place,
 avoiding code duplication. You can check that there is only one location
-where we insert '|' and '~' in the grid.
+where we write '`|`' and '`~`' in the grid.
 
-> basicFlow :: Grid -> Grid
-> basicFlow grid = snd $ pour (500, minY) grid
->   where
->     ((minX, maxX), (minY, maxY)) = bounds $ M.toList grid
->     (left, right) = (first (subtract 1), first (+1))
-> 
->     isFree :: Pt -> Grid -> Maybe Bool
->     isFree (x, y) grid =
->         if y > maxY || x > maxX+10 || x < minX-10
->         then Just False -- border never overflows
->         else case M.lookup (x, y) grid of
->                 Just '|' -> Just False -- no overflow
->                 Just _   -> Just True  -- overflow ('~', '#')
->                 Nothing  -> Nothing    -- empty cell, should propagate
+Using monads
+------------
 
-Part 1: Pour water below  
-
-Mark the current cell, and test the one below.  When free, move to our helper
-method pour'.
-
->     pour :: Pt -> Grid -> (Bool, Grid)
->     pour pos grid = case isFree npos grid of
->         Just r -> (r, markedGrid)
->         Nothing -> pour' npos markedGrid
->       where
->         markedGrid = M.insert pos '|' grid
->         npos = second (+1) pos
-
-Pouring water may have three outcomes.  When it flows freely, nothing more has
-to be done.  On overflow below, we need to propagate on the sides.  If that
-also overflows, we just mark the water on both sides as still.
-
-Thanks to haskell lazyness, we can efficiently specify all the computations,
-and only use the ones we really need.
-
->     pour' :: Pt -> Grid -> (Bool, Grid)
->     pour' pos markedGrid
->         | not overflows = (False, filledGrid)
->         | not stilled   = (False, overflGrid)
->         | otherwise     = (True,  stillGrid )
->       where
->         (overflows, filledGrid) = pour       pos markedGrid
->         (stilled,   overflGrid) = fillSides  pos filledGrid
->         (           stillGrid ) = stillSides pos overflGrid
-
-Part2: Filling on the sides.
-
-Filling is a symmetrical operation that needs to happen to the left and to the
-right of the current overflowing position.  Overflows happen when both left and
-right filling operations overflow.  To obtain the right result, we need to
-chain the grids in the two calls.
-
->     fillSides :: Pt -> Grid -> (Bool, Grid)
->     fillSides pos baseGrid = (overflowRight && overflowLeft, fullGrid)
->       where
->         (overflowRight, halfGrid) = fill right pos baseGrid
->         (overflowLeft,  fullGrid) = fill left  pos halfGrid
-
-Filling itself is just pouring on the side of the position.  The side itself
-being defined by `dir`, the current direction in which we are filling.  The
-operation occurs in two parts.  First, we test if the side position is free...
-
->     fill :: (Pt -> Pt) -> Pt -> Grid -> (Bool, Grid)
->     fill dir pos grid = let npos = dir pos in
->         case isFree npos grid of
->             Just r -> (r, grid)
->             Nothing -> fill' dir npos grid
-
-... and then pour at that location.  On overflow, we continue filling in the
-same direction.
-
->     fill' :: (Pt -> Pt) -> Pt -> Grid -> (Bool, Grid)
->     fill' dir pos baseGrid
->         | not overflowsDown = (False,        downGrid)
->         | otherwise         = (overflowsDir, dirGrid )
->       where
->         (overflowsDown, downGrid) = pour     pos baseGrid
->         (overflowsDir,  dirGrid ) = fill dir pos downGrid
-
-Part 3: Marking water still.
-
-This operation is simpler because we expect no overflows, and only work
-sideways, never downwards.  Again, the operation is symmetrical, so we split it
-in two `still` operations, in each direction.
-
->     stillSides :: Pt -> Grid -> Grid
->     stillSides pos = still right pos . still left pos
-
-Compared to above, we are no more interested in empty cells, but in non-still
-cells. We continue propagating as long as the current cell is not a rock ('#').
-By construction, we only encounter '|' and '#'. Empty or still cells are
-impossible.
-
->     still :: (Pt -> Pt) -> Pt -> Grid -> Grid
->     still dir pos grid = case isFree npos grid of
->         Just False -> stillGrid
->         _ -> markedGrid
->       where 
->         markedGrid = M.insert pos '~' grid
->         stillGrid = still dir npos markedGrid
->         npos = dir pos
-
-That's it. But this code is quite tedious.
-
-We have to carry around the position (`pos`/`npos`: 30 occurrences) in all our
-functions.  The same goes for the grid (`grid`/´*Grid´: 46 occurences) where we
-also have to find names for each intermediate results.  That's because haskell
-variables are immutable.
-
-This code can be simplified using monads. For our purpose, a monad represents a
-context in which computations occur.  In our context, we would like to have i)
-a mutable grid and ii) the current position.
+In this code, we have to carry around the current position in the grid and the
+grid itself.  Because they are used everywhere, it turns out to be simpler not
+to handle them explicilty, but hide them away in the context of the
+computation.  That is exactly what monads are for. Performing a computation in
+a context.  In our context, we would like to have i) a mutable grid and ii) the
+current position.
 
 This is what the State and Reader monads are made for.  The state monad carries
 a value that can be altered. The new value will be the only one available to
@@ -201,11 +128,11 @@ subsequent computations.
 The reader monad is much like the state, except that the value can only be
 read, not altered.  It is however possible to start new computations with a
 different value to be read. Think of it like a scope.  All the computations in
-the same scope will read the same value, and there is no way to make values of
-sub-scopes available to their parent.
+the same scope will read the same value, and there is no way for a scope to
+alter values in its parent.
 
-That is why we define a flow like as a monad with two contexts. A state and a
-reader.  Monads wrap (or return) a value. In this case, our computations need
+That is why we define a flow as a stack of two monads: state and reader.
+Monads wrap (or return) a value. In this case, our computations need
 to return whether they overflowed. So a Bool will do.
 
 > -- | A Flow is a local action on the grid.
@@ -221,7 +148,7 @@ use the result to know if we should perform further actions.
 For example, we would like to perform the fill action only when the pouring
 overflowed.  That is why we define custom operators for monads on booleans.
 
-The definition is a bit obscure. It ensures that the operators fail fast, and
+The definition is obscure. It ensures that the operators fail fast, and
 only perform the second computation when the first one is not enough to
 determine the result.  `<&&> `is the non fail-fast exception. Both computations
 are performed before collecting the results.
@@ -242,9 +169,9 @@ source.
 >     ((minX, maxX), (minY, maxY)) = bounds $ M.toList grid
 >     (left, right, down) = (first (subtract 1), first (+1), second (+1))
 
-Simmilar to isFree. But turned into an action.  You pass the action you want to
-perform when the current cell is free and get back an action that returns the
-overflow status.  `ask` is the way to obtain the current position
+Generic, higher-order test for the content of a cell. You pass the action you
+want to perform when the current cell is free and get back an action that
+returns the overflow status.  `ask` is the way to obtain the current position
 from the reader monad.
 
 >     onFree :: Flow -> Flow
@@ -257,11 +184,11 @@ from the reader monad.
 >                 Just _   -> return True
 >                 Nothing  -> action
 
-Then we define two helpers functions.
+Then we define two more helpers functions.
 
 `set` writes its argument `c` in the current cell.  Because both the grid and
 the position are in the context, we only need to take `c` as parameter.
-`ask` gives the position, which is in turn used to `modify` the grid.
+`ask` gives the current position, which is in turn used to `modify` the grid.
 `modify` alters the state based on the provided `Grid -> Grid` function.
 
 >     set :: Char -> ReaderT Pt (State Grid) ()
@@ -272,7 +199,12 @@ It overflows when both operations overflow.
 
 >     sides op = op left <&&> op right
 
-After these, we find the simplified `pour`, `fill` and `still` functions.
+Part 1: Pour water below
+------------------------
+
+Pouring water down may have three outcomes.  When it flows freely, nothing more has
+to be done.  On overflow below, we need to propagate on the sides.  If both sides also
+also overflow, we just mark the water as still on both sides.
 
 > 
 >     pour :: Flow
@@ -290,13 +222,34 @@ After these, we find the simplified `pour`, `fill` and `still` functions.
 Introducing an alias like `onOverflow = (&&>)`{.haskell} could improve the wording.
 The last line would become ```onFree (pour `onOverflow` sides fill `onOverflow` sides still)```{.haskell}.
 
+Part2: Filling on the sides
+---------------------------
+
+Filling is a symmetrical operation that needs to happen to the left and to the
+right of the current overflowing position.  Overflows happen when both left and
+right filling operations overflow. It has to be called with `sides` as we did
+in `pour`.
+
 `fill` is a one-liner. Move to the next position and try to pour when free.
 On overflow, continue filling further in the same direction.
 
+Notice that the argument `dir` represents the direction of pouring. It is a
+function `Pt -> Pt`{.haskell} that modifies a position.
+
 >     fill dir = local dir $ onFree (pour &&> fill dir)
 
-Stilling is a bit different.  No operation is performed when the cell is free.
-It cannot be free anyway.  Fill with still water until we reach a rock
+
+Part 3: Marking water still
+---------------------------
+
+This operation is simpler because we expect no overflows, and only work
+sideways, never downwards.  Again, the operation is symmetrical, so we split it
+in two `still` operations, in each direction.
+
+Compared to above, we are no more interested in empty cells, but in non-still
+cells. We continue propagating as long as the current cell is not a rock ('`#`').
+By construction, we only encounter '`|`' and '`#`'. Empty or still cells are
+impossible.
 
 >     still dir = do
 >         set '~'
@@ -305,20 +258,12 @@ It cannot be free anyway.  Fill with still water until we reach a rock
 >         -- cell cannot be free, action is irrelevant.
 >         isRock = onFree undefined
 
-Done.
+That's all for the code.
 
-
-Both codes follow the same algorithm. Under the hood they perform the same
-operations in the same order.  The second version is however way more concise.
-There are 33% less words in the second version. 50% if you omit the declaration
-of the Flow type and the binary operators.  Considering that most of the code
-resides in the isFree/onFree function and above. The reduction is even larger
-on the three main operations.
-
-The second code is more dense. It means that it takes a bit more concentration to
-break down the instructions. But overall, I love the way the essential
-operations now appear first class.
-Solving the problem is a matter of chaining (`&&>`) actions that
+The code is dense. It means that it requires some concentration to break
+down the instructions. But overall, I love the way the essential operations
+appear as first class citizens.  Solving the problem is a matter of chaining (`&&>`)
+actions that
 
   - `set` values;
   - move around (`local`);

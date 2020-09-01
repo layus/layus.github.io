@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Monads vs. Waterfalls</title>
+        <link rel="stylesheet" href="../css/default.css" />
+        <link rel="stylesheet" href="../css/syntax.css" />
+    </head>
+    <body>
+        <div id="navigation">
+            <header class="logo">
+                <a href="https://www.guedelon.fr/en/galerie_16.html">
+                    <img src="../images/layus.png" alt style="width: 15rem;" />
+                </a>
+            </header>
+            <nav>
+                <a href="../">Home</a>
+                <a href="../about.html">About</a>
+                <a href="../contact.html">Contact</a>
+                <a href="../archive.html">Archive</a>
+            </nav>
+        </div>
+        <div id="content">
+            <header class="blog-title">
+                <div class="blog-title-container">
+                    <a href="../">Layus' short musings</a>
+                </div>
+            </header>
+
+            <main role="main">
+                <!-- <h1>Monads vs. Waterfalls</h1> -->
+                <article>
+    <section class="header">
+        Posted on August 11, 2020
+        
+    </section>
+    <section>
+        <h1 id="monads-vs.-waterfalls">Monads vs. Waterfalls</h1>
+<p>I spent some times forging a solution to an advent of code problem (<a href="https://adventofcode.com/2018/day/17">day 17, 2018</a>). My initial algorithm was cluttered with updates to the same map, and maintaining the current position through an otherwise nice and simple recursive code. The result feels beatiful, and deserves its own spot in the internet.</p>
+<p>This post is a litteral haskell file. Compile and execute the <a href="https://github.com/layus/layus.github.io/blob/dev/posts/2020-08-11-monads-vs-waterfall.lhs">source</a> directly with ghc.</p>
+<p>If you do not want to read the full problem statement, you basically have to let water flow in a rocky underground. Water can either flow freely, or remain still in pockets of rocks.</p>
+<pre><code>      +                      +       
+            #                |     # 
+ #  #       #           #  #||||   # 
+ #  #  #                #  #~~#|     
+ #  #  #                #  #~~#|     
+ #     #                #~~~~~#|     
+ #     #                #~~~~~#|     
+ #######         ==&gt;    #######|     
+                               |     
+                          |||||||||  
+    #     #               |#~~~~~#|  
+    #     #               |#~~~~~#|  
+    #     #               |#~~~~~#|  
+    #######               |#######|  </code></pre>
+<p>We start with a few imports and a main function.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode haskell literate"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true"></a><span class="kw">import</span> <span class="kw">qualified</span> <span class="dt">Data.Map.Strict</span>    <span class="kw">as</span> <span class="dt">M</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true"></a><span class="kw">import</span> <span class="dt">Data.Map.Strict</span>              (<span class="dt">Map</span>)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true"></a><span class="kw">import</span> <span class="dt">Control.Arrow</span>                ((&amp;&amp;&amp;), (***), first, second)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true"></a><span class="kw">import</span> <span class="dt">Control.Monad</span>                (liftM2, join)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true"></a><span class="kw">import</span> <span class="dt">Data.Bool</span>                    (bool)</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true"></a><span class="kw">import</span> <span class="dt">Control.Monad.Reader</span>         (<span class="dt">ReaderT</span>, runReaderT, local, ask)</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true"></a><span class="kw">import</span> <span class="dt">Control.Monad.State.Strict</span>   (<span class="dt">State</span>, execState, modify, get)</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true"></a><span class="kw">import</span> <span class="dt">Text.Parsec</span>                  (many, count, (&lt;|&gt;), char, noneOf, newline, eof)</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true"></a><span class="kw">import</span> <span class="dt">Text.Parsec.String</span>           (<span class="dt">Parser</span>, parseFromFile)</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true"></a><span class="kw">import</span> <span class="dt">Text.Parsec.Number</span>           (nat)</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true"></a>main <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true"></a>    input <span class="ot">&lt;-</span> getInput <span class="st">&quot;input17.txt&quot;</span> day17parser</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true"></a>    <span class="kw">let</span> res  <span class="ot">=</span> <span class="fu">show</span> <span class="op">$</span> day17 input</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true"></a>        res' <span class="ot">=</span> <span class="fu">show</span> <span class="op">$</span> day17bis input</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true"></a>    <span class="fu">putStrLn</span> <span class="op">$</span> <span class="st">&quot;Day 17 -- &quot;</span> <span class="op">&lt;&gt;</span> res <span class="op">&lt;&gt;</span> <span class="st">&quot; -- &quot;</span> <span class="op">&lt;&gt;</span> res'</span></code></pre></div>
+<p>Then four helper functions for parsing and handling input.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode haskell literate"><code class="sourceCode haskell"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true"></a><span class="co">-- | Get ((minX, maxX), (minY, maxY)) from a list of Pt with data</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true"></a><span class="ot">bounds ::</span> <span class="dt">Ord</span> a <span class="ot">=&gt;</span> [((a, a), b)] <span class="ot">-&gt;</span> ((a, a), (a, a))</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true"></a>bounds <span class="ot">=</span> join (<span class="op">***</span>) (<span class="fu">minimum</span> <span class="op">&amp;&amp;&amp;</span> <span class="fu">maximum</span>) <span class="op">.</span> <span class="fu">unzip</span> <span class="op">.</span> <span class="fu">map</span> <span class="fu">fst</span> </span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true"></a><span class="ot">parseLines ::</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> <span class="dt">Parser</span> [a]</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true"></a>parseLines p <span class="ot">=</span> many (p <span class="op">&lt;*</span> newline)</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true"></a><span class="ot">justNat ::</span> <span class="dt">Parser</span> <span class="dt">Int</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true"></a>justNat <span class="ot">=</span> many (noneOf <span class="st">&quot;0123456789\n&quot;</span>) <span class="op">*&gt;</span> nat <span class="op">&lt;*</span> many (noneOf <span class="st">&quot;0123456789\n&quot;</span>)</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true"></a><span class="ot">getInput ::</span> <span class="dt">FilePath</span> <span class="ot">-&gt;</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> a</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true"></a>getInput path p <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true"></a>    input <span class="ot">&lt;-</span> parseFromFile (p <span class="op">&lt;*</span> eof) path </span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true"></a>    <span class="fu">either</span> (<span class="fu">error</span> <span class="op">.</span> <span class="fu">show</span>) <span class="fu">return</span> input</span></code></pre></div>
+<p>Then comes the real stuff. We define the <code>Pt</code> type for position in the grid, and <code>Grid</code> to represent the ground with rocks. Follows a parser to make sense of the input, and one-liners to get the actual puzzle responses. We were asked the number of tiles with water, and then the number of tiles with still water only.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode haskell literate"><code class="sourceCode haskell"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true"></a><span class="co">-- Day 17</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true"></a><span class="kw">type</span> <span class="dt">Pt</span> <span class="ot">=</span> (<span class="dt">Int</span>, <span class="dt">Int</span>) </span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true"></a><span class="kw">type</span> <span class="dt">Grid</span> <span class="ot">=</span> <span class="dt">Map</span> <span class="dt">Pt</span> <span class="dt">Char</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true"></a><span class="ot">day17parser ::</span> <span class="dt">Parser</span> <span class="dt">Grid</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true"></a>day17parser <span class="ot">=</span> M.fromList <span class="op">.</span> <span class="fu">map</span> (\p <span class="ot">-&gt;</span> (p,<span class="ch">'#'</span>)) <span class="op">.</span> <span class="fu">concat</span> <span class="op">&lt;$&gt;</span> parseLines line <span class="kw">where</span> </span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true"></a>    line <span class="ot">=</span> <span class="kw">do</span> </span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true"></a>        axis <span class="ot">&lt;-</span> char <span class="ch">'x'</span> <span class="op">&lt;|&gt;</span> char <span class="ch">'y'</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true"></a>        [a, b, c] <span class="ot">&lt;-</span> count <span class="dv">3</span> justNat</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true"></a>        <span class="kw">let</span> coord <span class="ot">=</span> <span class="kw">if</span> axis <span class="op">==</span> <span class="ch">'x'</span> <span class="kw">then</span> (,) a <span class="kw">else</span> <span class="fu">flip</span> (,) a</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true"></a>        <span class="fu">return</span> <span class="op">$</span> <span class="fu">map</span> coord (<span class="fu">enumFromTo</span> b c)</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true"></a></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true"></a><span class="co">-- # tiles with water, that is # non-rock tiles.</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true"></a>day17 <span class="ot">=</span> <span class="fu">length</span> <span class="op">.</span> <span class="fu">filter</span> (<span class="op">/=</span> <span class="ch">'#'</span>) <span class="op">.</span> M.elems</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true"></a><span class="co">-- # still water tiles</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true"></a>day17bis <span class="ot">=</span> <span class="fu">length</span> <span class="op">.</span> <span class="fu">filter</span> (<span class="op">==</span> <span class="ch">'~'</span>) <span class="op">.</span> M.elems</span></code></pre></div>
+<h2 id="general-idea">General idea</h2>
+<p>We proceed by propagating the flow in different directions. Each propagation function returns a boolean to tell whether we overflowed in that direction.</p>
+<p>On overflows, we propagate in other directions, or mark water still. This is reflected by three operation. Pouring (down), filling (left and right) and “stilling” (marking water as still).</p>
+<p>The algorithm is a counter-intuitive we mark the current cell unconditionally and test the next one for being free. That is actually an invariant: always call the flow operators on a free cell. The only rationale for this rule is to mark cells at only one place, avoiding code duplication. You can check that there is only one location where we write ‘<code>|</code>’ and ‘<code>~</code>’ in the grid.</p>
+<h2 id="using-monads">Using monads</h2>
+<p>In this code, we have to carry around the current position in the grid and the grid itself. Because they are used everywhere, it turns out to be simpler not to handle them explicilty, but hide them away in the context of the computation. That is exactly what monads are for. Performing a computation in a context. In our context, we would like to have i) a mutable grid and ii) the current position.</p>
+<p>This is what the State and Reader monads are made for. The state monad carries a value that can be altered. The new value will be the only one available to subsequent computations.</p>
+<p>The reader monad is much like the state, except that the value can only be read, not altered. It is however possible to start new computations with a different value to be read. Think of it like a scope. All the computations in the same scope will read the same value, and there is no way for a scope to alter values in its parent.</p>
+<p>That is why we define a flow as a stack of two monads: state and reader. Monads wrap (or return) a value. In this case, our computations need to return whether they overflowed. So a Bool will do.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode haskell literate"><code class="sourceCode haskell"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true"></a><span class="co">-- | A Flow is a local action on the grid.</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true"></a><span class="kw">type</span> <span class="dt">Flow</span> <span class="ot">=</span> <span class="dt">ReaderT</span> <span class="dt">Pt</span> (<span class="dt">State</span> <span class="dt">Grid</span>) <span class="dt">Bool</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true"></a><span class="co">--          ^           ^           ^- A flow returns a boolean to tell whether it overflowed.</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true"></a><span class="co">--          |           `- The grid is a `modify`able implicit context.</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true"></a><span class="co">--          `- We can always `ask` our current position.</span></span></code></pre></div>
+<p>As with every monads, we need to compose these actions. Usually, the result of a monadic computation can be fed into another. In this case, we would rather use the result to know if we should perform further actions.</p>
+<p>For example, we would like to perform the fill action only when the pouring overflowed. That is why we define custom operators for monads on booleans.</p>
+<p>The definition is obscure. It ensures that the operators fail fast, and only perform the second computation when the first one is not enough to determine the result. <code>&lt;&amp;&amp;&gt;</code>is the non fail-fast exception. Both computations are performed before collecting the results.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode haskell literate"><code class="sourceCode haskell"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true"></a><span class="kw">infixl</span> <span class="dv">1</span> <span class="op">&lt;&amp;&amp;&gt;</span>, <span class="op">||&gt;</span>, <span class="op">&amp;&amp;&gt;</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true"></a>(<span class="op">&amp;&amp;&gt;</span>), (<span class="op">||&gt;</span>),<span class="ot"> (&lt;&amp;&amp;&gt;) ::</span> (<span class="dt">Monad</span> m) <span class="ot">=&gt;</span> m <span class="dt">Bool</span> <span class="ot">-&gt;</span> m <span class="dt">Bool</span> <span class="ot">-&gt;</span> m <span class="dt">Bool</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true"></a>a  <span class="op">&amp;&amp;&gt;</span> b <span class="ot">=</span> a <span class="op">&gt;&gt;=</span> bool (<span class="fu">return</span> <span class="dt">False</span>) b</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true"></a>a  <span class="op">||&gt;</span> b <span class="ot">=</span> a <span class="op">&gt;&gt;=</span> bool b (<span class="fu">return</span> <span class="dt">True</span>)</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true"></a>a <span class="op">&lt;&amp;&amp;&gt;</span> b <span class="ot">=</span> liftM2 (<span class="op">&amp;&amp;</span>) a b</span></code></pre></div>
+<p>So here is the real beast. We start pouring in a monadic context. The state is initialized with <code>grid</code>, and the reader with <code>(500, minY)</code>, the initial water source.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode haskell literate"><code class="sourceCode haskell"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true"></a><span class="ot">flow ::</span> <span class="dt">Grid</span> <span class="ot">-&gt;</span> <span class="dt">Grid</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true"></a>flow grid <span class="ot">=</span> <span class="fu">flip</span> execState grid <span class="op">$</span> <span class="fu">flip</span> runReaderT (<span class="dv">500</span>, minY) <span class="op">$</span> pour</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true"></a>  <span class="kw">where</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true"></a>    ((minX, maxX), (minY, maxY)) <span class="ot">=</span> bounds <span class="op">$</span> M.toList grid</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true"></a>    (left, right, down) <span class="ot">=</span> (first (<span class="fu">subtract</span> <span class="dv">1</span>), first (<span class="op">+</span><span class="dv">1</span>), second (<span class="op">+</span><span class="dv">1</span>))</span></code></pre></div>
+<p>Generic, higher-order test for the content of a cell. You pass the action you want to perform when the current cell is free and get back an action that returns the overflow status. <code>ask</code> is the way to obtain the current position from the reader monad.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode haskell literate"><code class="sourceCode haskell"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true"></a><span class="ot">    onFree ::</span> <span class="dt">Flow</span> <span class="ot">-&gt;</span> <span class="dt">Flow</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true"></a>    onFree action <span class="ot">=</span> ask <span class="op">&gt;&gt;=</span> \(x, y) <span class="ot">-&gt;</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true"></a>        <span class="kw">if</span> y <span class="op">&gt;</span> maxY <span class="op">||</span> x <span class="op">&gt;</span> maxX<span class="op">+</span><span class="dv">10</span> <span class="op">||</span> x <span class="op">&lt;</span> minX<span class="op">-</span><span class="dv">10</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true"></a>        <span class="kw">then</span> <span class="fu">return</span> <span class="dt">False</span> <span class="co">-- border never overflows</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true"></a>        <span class="kw">else</span> M.lookup (x, y) <span class="op">&lt;$&gt;</span> get <span class="op">&gt;&gt;=</span> \cell <span class="ot">-&gt;</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true"></a>            <span class="kw">case</span> cell <span class="kw">of</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true"></a>                <span class="dt">Just</span> <span class="ch">'|'</span> <span class="ot">-&gt;</span> <span class="fu">return</span> <span class="dt">False</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true"></a>                <span class="dt">Just</span> _   <span class="ot">-&gt;</span> <span class="fu">return</span> <span class="dt">True</span></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true"></a>                <span class="dt">Nothing</span>  <span class="ot">-&gt;</span> action</span></code></pre></div>
+<p>Then we define two more helpers functions.</p>
+<p><code>set</code> writes its argument <code>c</code> in the current cell. Because both the grid and the position are in the context, we only need to take <code>c</code> as parameter. <code>ask</code> gives the current position, which is in turn used to <code>modify</code> the grid. <code>modify</code> alters the state based on the provided <code>Grid -&gt; Grid</code> function.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode haskell literate"><code class="sourceCode haskell"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true"></a><span class="ot">    set ::</span> <span class="dt">Char</span> <span class="ot">-&gt;</span> <span class="dt">ReaderT</span> <span class="dt">Pt</span> (<span class="dt">State</span> <span class="dt">Grid</span>) ()</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true"></a>    set c <span class="ot">=</span> ask <span class="op">&gt;&gt;=</span> \pos <span class="ot">-&gt;</span> modify (M.insert pos c)</span></code></pre></div>
+<p><code>sides</code> performs a flow operation in both directions (left and right). It overflows when both operations overflow.</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode haskell literate"><code class="sourceCode haskell"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true"></a>    sides op <span class="ot">=</span> op left <span class="op">&lt;&amp;&amp;&gt;</span> op right</span></code></pre></div>
+<h2 id="part-1-pour-water-below">Part 1: Pour water below</h2>
+<p>Pouring water down may have three outcomes. When it flows freely, nothing more has to be done. On overflow below, we need to propagate on the sides. If both sides also also overflow, we just mark the water as still on both sides.</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode haskell literate"><code class="sourceCode haskell"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true"></a></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true"></a><span class="ot">    pour ::</span> <span class="dt">Flow</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true"></a>    pour <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true"></a>        <span class="co">-- Set current cell to '|'</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true"></a>        set <span class="ch">'|'</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true"></a>        <span class="co">-- `local` executes the action with a position modified by its first argument.</span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true"></a>        <span class="co">-- This new position is only visible to the action passed as second argument.</span></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true"></a>        local down <span class="op">$</span></span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true"></a>            <span class="co">-- The action (executed only when the cell is free) consists of</span></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true"></a>            <span class="co">-- pouring, filling and stilling in sequence, stopping when no</span></span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true"></a>            <span class="co">-- overflow occurs.</span></span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true"></a>            onFree (pour <span class="op">&amp;&amp;&gt;</span> sides fill <span class="op">&amp;&amp;&gt;</span> sides still)</span></code></pre></div>
+<p>Introducing an alias like <code class="sourceCode haskell">onOverflow <span class="ot">=</span> (<span class="op">&amp;&amp;&gt;</span>)</code> could improve the wording. The last line would become <code class="sourceCode haskell">onFree (pour <span class="ot">`onOverflow`</span> sides fill <span class="ot">`onOverflow`</span> sides still)</code>.</p>
+<h2 id="part2-filling-on-the-sides">Part2: Filling on the sides</h2>
+<p>Filling is a symmetrical operation that needs to happen to the left and to the right of the current overflowing position. Overflows happen when both left and right filling operations overflow. It has to be called with <code>sides</code> as we did in <code>pour</code>.</p>
+<p><code>fill</code> is a one-liner. Move to the next position and try to pour when free. On overflow, continue filling further in the same direction.</p>
+<p>Notice that the argument <code>dir</code> represents the direction of pouring. It is a function <code class="sourceCode haskell"><span class="dt">Pt</span> <span class="ot">-&gt;</span> <span class="dt">Pt</span></code> that modifies a position.</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode haskell literate"><code class="sourceCode haskell"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true"></a>    fill dir <span class="ot">=</span> local dir <span class="op">$</span> onFree (pour <span class="op">&amp;&amp;&gt;</span> fill dir)</span></code></pre></div>
+<h2 id="part-3-marking-water-still">Part 3: Marking water still</h2>
+<p>This operation is simpler because we expect no overflows, and only work sideways, never downwards. Again, the operation is symmetrical, so we split it in two <code>still</code> operations, in each direction.</p>
+<p>Compared to above, we are no more interested in empty cells, but in non-still cells. We continue propagating as long as the current cell is not a rock (‘<code>#</code>’). By construction, we only encounter ‘<code>|</code>’ and ‘<code>#</code>’. Empty or still cells are impossible.</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode haskell literate"><code class="sourceCode haskell"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true"></a>    still dir <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true"></a>        set <span class="ch">'~'</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true"></a>        local dir (isRock <span class="op">||&gt;</span> still dir)</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true"></a>      <span class="kw">where</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true"></a>        <span class="co">-- cell cannot be free, action is irrelevant.</span></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true"></a>        isRock <span class="ot">=</span> onFree <span class="fu">undefined</span></span></code></pre></div>
+<p>That’s all for the code.</p>
+<p>The code is dense. It means that it requires some concentration to break down the instructions. But overall, I love the way the essential operations appear as first class citizens. Solving the problem is a matter of chaining (<code>&amp;&amp;&gt;</code>) actions that</p>
+<ul>
+<li><code>set</code> values;</li>
+<li>move around (<code>local</code>);</li>
+<li><code>pour</code>, <code>fill</code> and <code>still</code> when <code>on free</code> cells.</li>
+</ul>
+    </section>
+</article>
+
+            </main>
+
+            <footer>
+                Site proudly generated by
+                <a href="http://jaspervdj.be/hakyll">Hakyll</a>
+            </footer>
+        </div>
+    </body>
+</html>

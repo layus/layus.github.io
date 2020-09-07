@@ -50,7 +50,7 @@ body {
 	line-height: 1;
 }
 ol, ul {
-	//list-style: none;
+	list-style: none;
 }
 blockquote, q {
 	quotes: none;
@@ -145,6 +145,7 @@ div#navigation {
     width: 10rem;
     box-shadow: 5px 0px $tan;
     height: 100%;
+    z-index: 1;
 }
 
 nav {
@@ -198,14 +199,22 @@ Rubrication red: #b84f62
 */
 
 body {
-  font-size: 2rem;
-  font-family: 'Crimson', sans-serif;
+  font-size: 18px;
+  font-family: 'Vollkorn', 'Crimson', sans-serif;
   letter-spacing: 0.02rem;
   line-height: 1.4;
   text-rendering: optimizeLegibility;
   font-kerning: normal;
   font-feature-settings: "kern";
   color: $gray;
+}
+
+em {
+  font-family: 'Vollkorn Italic';
+}
+
+b {
+  font-weight: bold;
 }
 
 p {
@@ -231,6 +240,20 @@ a {
 @font-face {
   font-family: Playfair;
   src: url(/fonts/PlayfairDisplay-Regular.otf);
+}
+
+@font-face {
+  font-family: 'Vollkorn';
+  font-style: normal;
+  font-weight: 400;
+  src: url(/fonts/Vollkorn-Regular.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'Vollkorn Italic';
+  font-style: normal;
+  font-weight: 400;
+  src: url(/fonts/Vollkorn-Italic.woff2) format('woff2');
 }
 
 nav a {
@@ -320,12 +343,28 @@ code {
 
 pre {
   line-height: 1;
-  overflow-x: auto;
+  overflow: auto;
+  visibility: hidden;
 }
 
-ul {
+code {
+  text-overflow: ellipsis;
+  visibility: visible;
+}
+
+pre:hover,
+pre:focus {
+  visibility: visible;
+}
+
+ul, ol {
   padding-top: 0.5rem;
   padding-bottom: 0.5rem;
+  list-style: decimal;
+}
+
+dd {
+  padding-left: 2rem;
 }
 
 .post-title-link {

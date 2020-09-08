@@ -19,21 +19,21 @@ Store path hashes
 
 The most visible digests in Nix appears in store path names. Lets take for example a pinned version of `hello`.
 
-```Nix
+```nix
 let
   nixpkgs = import (builtins.fetchTarball {
     url = "https://github.com/nixos/nixpkgs/archive/c59ea8b8a0e7f927e7291c14ea6cd1bd3a16ff38.tar.gz";
     sha256 = "1ak7jqx94fjhc68xh1lh35kh3w3ndbadprrb762qgvcfb8351x8v";
   }) {};
 in
-  nixpkgs.hello # => /Nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello-2.10
+  nixpkgs.hello # => /nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello-2.10
 ```
 
 Nix composes the hash part of the path by compressing to 32 base32 characters (160 bits or 20 bytes) a sha256 digest. Base32 encoding is unique to Nix. It uses digits and lower-case letters (except [EOUT]) for a total of 32 characters valid in a file name. The result is more dense than base16 while  avoiding the strange characters of base64 (`+`, `/`, `=`) amongst which `/` would create a lot of trouble in file names.
 
-[EOUT]: https://discourse.nixos.org/t/no-hashes-starting-with-e-t-o-or-u-in-Nix-store/4906/1
+[EOUT]: https://discourse.nixos.org/t/no-hashes-starting-with-e-t-o-or-u-in-nix-store/4906/1
 
-For example `/Nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello-2.10` contains <code><b>ab1pfk338f6g</b>zpglsirxhvji4g9w558i</code> which is the compression on 20 bytes of <code>0fqqilza6ifk0arlay18<b>ab1pfk338f6g</b>zrpcb56pnaw245h8gv9r</code>. Basically folding excess bits with xor. Notice how some characters are shared, as the input is so small that some of them are passed as-is.
+For example `/nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello-2.10` contains <code><b>ab1pfk338f6g</b>zpglsirxhvji4g9w558i</code> which is the compression on 20 bytes of <code>0fqqilza6ifk0arlay18<b>ab1pfk338f6g</b>zrpcb56pnaw245h8gv9r</code>. Basically folding excess bits with xor. Notice how some characters are shared, as the input is so small that some of them are passed as-is.
 
 ```
   ab1pfk338f6gzrpcb56pnaw245h8gv9r
@@ -42,7 +42,7 @@ For example `/Nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello-2.10` contains <c
 = ab1pfk338f6gzpglsirxhvji4g9w558i
 ```
 
-The full (uncompressed) digest comes from hashing the string `output:out:sha256:5d4447675168bb44442f0d225ab8b50b7a67544f0ba2104dbf74926ff4df1d1e:/Nix/store:hello-2.10`. This string is a fingerprint of the important parts of that derivation.
+The full (uncompressed) digest comes from hashing the string `output:out:sha256:5d4447675168bb44442f0d225ab8b50b7a67544f0ba2104dbf74926ff4df1d1e:/nix/store:hello-2.10`. This string is a fingerprint of the important parts of that derivation.
 If any part changes, the hash will be different, and it will produce a different output path.
 
 We can see four parts:
@@ -50,52 +50,52 @@ We can see four parts:
 1. `output:out` is the type of the fingerprint. Here we fingerprint something used for an output path. The output named `out` in this case.
   Nix uses various types, and each expects different things in the remainder of the string.
 2. `sha256:5d4447675168bb44442f0d225ab8b50b7a67544f0ba2104dbf74926ff4df1d1e` is the hash of the derivation building hello. As a hash it encompasses many things, and we will explore that further below.
-3. `/Nix/store` is the store prefix.
+3. `/nix/store` is the store prefix.
 4. `hello-2.10` is the name of the derivation.
 
-Hashing the derivation is a tricky part. Nix store a lot of information about derivations. To read it, we can use `Nix show-derivation` on our `hello` package.
+Hashing the derivation is a tricky part. Nix store a lot of information about derivations. To read it, we can use `nix show-derivation` on our `hello` package.
 
 
 ```json
 {
-  "/Nix/store/4pmrswlhqyclwpv12l1h7mr9qkfhpd1c-hello-2.10.drv": {
+  "/nix/store/4pmrswlhqyclwpv12l1h7mr9qkfhpd1c-hello-2.10.drv": {
     "outputs": {
-      "out": { "path": "/Nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello-2.10" }
+      "out": { "path": "/nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello-2.10" }
     },
-    "inputSrcs": [ "/Nix/store/9krlzvny65gdc8s7kpb6lkx8cd02c25b-default-builder.sh" ],
+    "inputSrcs": [ "/nix/store/9krlzvny65gdc8s7kpb6lkx8cd02c25b-default-builder.sh" ],
     "inputDrvs": {
-      "/Nix/store/fkz4j4zj7xaf1z1g0i29987dvvc3xxbv-hello-2.10.tar.gz.drv": [ "out" ],
-      "/Nix/store/fsqdw7hjs2qdcy8qgcv5hnrajsr77xhc-bash-4.4-p23.drv": [ "out" ],
-      "/Nix/store/q0kiricfc0gkwm1vy3j0svcq5jib4v1g-stdenv-linux.drv": [ "out" ]
+      "/nix/store/fkz4j4zj7xaf1z1g0i29987dvvc3xxbv-hello-2.10.tar.gz.drv": [ "out" ],
+      "/nix/store/fsqdw7hjs2qdcy8qgcv5hnrajsr77xhc-bash-4.4-p23.drv": [ "out" ],
+      "/nix/store/q0kiricfc0gkwm1vy3j0svcq5jib4v1g-stdenv-linux.drv": [ "out" ]
     },
     "platform": "x86_64-linux",
-    "builder": "/Nix/store/6737cq9nvp4k5r70qcgf61004r0l2g3v-bash-4.4-p23/bin/bash",
-    "args": [ "-e", "/Nix/store/9krlzvny65gdc8s7kpb6lkx8cd02c25b-default-builder.sh" ],
+    "builder": "/nix/store/6737cq9nvp4k5r70qcgf61004r0l2g3v-bash-4.4-p23/bin/bash",
+    "args": [ "-e", "/nix/store/9krlzvny65gdc8s7kpb6lkx8cd02c25b-default-builder.sh" ],
     "env": {
       "name": "hello-2.10",
-      "out": "/Nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello-2.10",
-      "src": "/Nix/store/3x7dwzq014bblazs7kq20p9hyzz0qh8g-hello-2.10.tar.gz",
-      "stdenv": "/Nix/store/50780gywsyjad8nxrf79q6qx7y7mqgal-stdenv-linux",
+      "out": "/nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello-2.10",
+      "src": "/nix/store/3x7dwzq014bblazs7kq20p9hyzz0qh8g-hello-2.10.tar.gz",
+      "stdenv": "/nix/store/50780gywsyjad8nxrf79q6qx7y7mqgal-stdenv-linux",
       // [elided for brevity]
     }
   }
 }
 ```
 
-`show-derivation` pretty prints and reformats the content of the .drv file. The exact content of `/Nix/store/4pmrswlhqyclwpv12l1h7mr9qkfhpd1c-hello-2.10.drv` is a nested structure starting with `"Derive("` and that's why we will call it the _derive_ string. It is formatted as an [ATerm] from the Stratego language. Curious readers will find more about this format in the related [Nix pill].
+`show-derivation` pretty prints and reformats the content of the .drv file. The exact content of `/nix/store/4pmrswlhqyclwpv12l1h7mr9qkfhpd1c-hello-2.10.drv` is a nested structure starting with `"Derive("` and that's why we will call it the _derive_ string. It is formatted as an [ATerm] from the Stratego language. Curious readers will find more about this format in the related [nix pill].
 
 [Aterm]: http://releases.strategoxt.org/strategoxt-manual/unstable/manual/chunk-chapter/stratego-terms.html#id3314115 
-[Nix pill]:  http://lethalman.blogspot.com/2014/07/Nix-pill-6-our-first-derivation.html
+[nix pill]:  http://lethalman.blogspot.com/2014/07/nix-pill-6-our-first-derivation.html
 
 ```
-$ cat /Nix/store/4pmrswlhqyclwpv12l1h7mr9qkfhpd1c-hello-2.10.drv
-Derive([("out","/Nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello-2.10","","")],[("/Nix/store/fkz4j4zj7xaf1z1g0i29987dvvc3xxbv-hello-2.10.tar.gz.drv",["out"]),("/Nix/store/fsqdw7hjs2qdcy8qgcv5hnrajsr77xhc-bash-4.4-p23.drv",["out"]),("/Nix/store/q0kiricfc0gkwm1vy3j0svcq5jib4v1g-stdenv-linux.drv",["out"])],["/Nix/store/9krlzvny65gdc8s7kpb6lkx8cd02c25b-default-builder.sh"],"x86_64-linux","/Nix/store/6737cq9nvp4k5r70qcgf61004r0l2g3v-bash-4.4-p23/bin/bash",["-e","/Nix/store/9krlzvny65gdc8s7kpb6lkx8cd02c25b-default-builder.sh"],[("buildInputs",""),("builder","/Nix/store/6737cq9nvp4k5r70qcgf61004r0l2g3v-bash-4.4-p23/bin/bash"),("configureFlags",""),("depsBuildBuild",""),("depsBuildBuildPropagated",""),("depsBuildTarget",""),("depsBuildTargetPropagated",""),("depsHostHost",""),("depsHostHostPropagated",""),("depsTargetTarget",""),("depsTargetTargetPropagated",""),("doCheck","1"),("doInstallCheck",""),("name","hello-2.10"),("nativeBuildInputs",""),("out","/Nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello-2.10"),("outputs","out"),("patches",""),("pname","hello"),("propagatedBuildInputs",""),("propagatedNativeBuildInputs",""),("src","/Nix/store/3x7dwzq014bblazs7kq20p9hyzz0qh8g-hello-2.10.tar.gz"),("stdenv","/Nix/store/50780gywsyjad8nxrf79q6qx7y7mqgal-stdenv-linux"),("strictDeps",""),("system","x86_64-linux"),("version","2.10")])
+$ cat /nix/store/4pmrswlhqyclwpv12l1h7mr9qkfhpd1c-hello-2.10.drv
+Derive([("out","/nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello-2.10","","")],[("/nix/store/fkz4j4zj7xaf1z1g0i29987dvvc3xxbv-hello-2.10.tar.gz.drv",["out"]),("/nix/store/fsqdw7hjs2qdcy8qgcv5hnrajsr77xhc-bash-4.4-p23.drv",["out"]),("/nix/store/q0kiricfc0gkwm1vy3j0svcq5jib4v1g-stdenv-linux.drv",["out"])],["/nix/store/9krlzvny65gdc8s7kpb6lkx8cd02c25b-default-builder.sh"],"x86_64-linux","/nix/store/6737cq9nvp4k5r70qcgf61004r0l2g3v-bash-4.4-p23/bin/bash",["-e","/nix/store/9krlzvny65gdc8s7kpb6lkx8cd02c25b-default-builder.sh"],[("buildInputs",""),("builder","/nix/store/6737cq9nvp4k5r70qcgf61004r0l2g3v-bash-4.4-p23/bin/bash"),("configureFlags",""),("depsBuildBuild",""),("depsBuildBuildPropagated",""),("depsBuildTarget",""),("depsBuildTargetPropagated",""),("depsHostHost",""),("depsHostHostPropagated",""),("depsTargetTarget",""),("depsTargetTargetPropagated",""),("doCheck","1"),("doInstallCheck",""),("name","hello-2.10"),("nativeBuildInputs",""),("out","/nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello-2.10"),("outputs","out"),("patches",""),("pname","hello"),("propagatedBuildInputs",""),("propagatedNativeBuildInputs",""),("src","/nix/store/3x7dwzq014bblazs7kq20p9hyzz0qh8g-hello-2.10.tar.gz"),("stdenv","/nix/store/50780gywsyjad8nxrf79q6qx7y7mqgal-stdenv-linux"),("strictDeps",""),("system","x86_64-linux"),("version","2.10")])
 ```
 
 However, hashing this derive string directly does not yield the expected hash found above. (Do you recall the `sha256:5d4447675168bb44442f0d225ab8b50b7a67544f0ba2104dbf74926ff4df1d1e` ?)
 
 ```
-$ Nix-hash --flat --type sha256 /Nix/store/4pmrswlhqyclwpv12l1h7mr9qkfhpd1c-hello-2.10.drv
+$ nix-hash --flat --type sha256 /nix/store/4pmrswlhqyclwpv12l1h7mr9qkfhpd1c-hello-2.10.drv
 40289ac3cc7d8896122c9a93ce580fb657aa29af6cf0a2bc4a30b3c53172ccf6
 ```
 
@@ -109,11 +109,11 @@ Text files
 Raw text files whose content is know by Nix without running any builder are named by a comparatively simpler scheme. Their name is a digest over both the content and the name of the path.
 
 ```
-$ Nix-instantiate --eval --expr 'builtins.toFile "file-name" "some content"'
-/Nix/store/gn48qr23kimj8iyh50jvffjx7335k9fz-file-name
+$ nix-instantiate --eval --expr 'builtins.toFile "file-name" "some content"'
+/nix/store/gn48qr23kimj8iyh50jvffjx7335k9fz-file-name
 └── gn48qr23kimj8iyh50jvffjx7335k9fz
     └── 0cl4lvq60bp9il749fyngn48qr23kimj8xalivaxf55lnp41s7h9
-        └── "text:sha256:290f493c44f5d63d06b374d0a5abd292fae38b92cab2fae5efefe1b0e9347f56:/Nix/store:file-name"
+        └── "text:sha256:290f493c44f5d63d06b374d0a5abd292fae38b92cab2fae5efefe1b0e9347f56:/nix/store:file-name"
             └── 290f493c44f5d63d06b374d0a5abd292fae38b92cab2fae5efefe1b0e9347f56
                 └── "some content"
 ```
@@ -121,17 +121,17 @@ $ Nix-instantiate --eval --expr 'builtins.toFile "file-name" "some content"'
 The text format is also used by .drv files. But .drv files can depend on other .drv files. All the dependencies appear between the `text:` and `:sha256` part of the path description.
 
 ```
-/Nix/store/4pmrswlhqyclwpv12l1h7mr9qkfhpd1c-hello-2.10.drv
+/nix/store/4pmrswlhqyclwpv12l1h7mr9qkfhpd1c-hello-2.10.drv
 └── 4pmrswlhqyclwpv12l1h7mr9qkfhpd1c
     └── 1c3ws0r5wm3ydx1zijcf4pmrswlhqyclxvqxqlqmv0spmfgg6zd2
-        └── "text:[... dependant .drv's  ...]:sha256:40289ac3cc7d8896122c9a93ce580fb657aa29af6cf0a2bc4a30b3c53172ccf6:/Nix/store:hello-2.10.drv"
+        └── "text:[... dependant .drv's  ...]:sha256:40289ac3cc7d8896122c9a93ce580fb657aa29af6cf0a2bc4a30b3c53172ccf6:/nix/store:hello-2.10.drv"
             └── 40289ac3cc7d8896122c9a93ce580fb657aa29af6cf0a2bc4a30b3c53172ccf6
-                └── "Derive([("out","... [content of /Nix/store/4pmrswlhqyclwpv12l1h7mr9qkfhpd1c-hello-2.10.drv] ..."
+                └── "Derive([("out","... [content of /nix/store/4pmrswlhqyclwpv12l1h7mr9qkfhpd1c-hello-2.10.drv] ..."
 ```
 
 All the different store path description strings are listed in [store-api.cc]. We have already seen 'text' right now and 'output' before. The third type is 'source', for some well-behaved, content addressed paths.
 
-[store-api.cc]: https://github.com/NixOS/Nix/blob/691a1bd7179bcf88f2638c1b8574c81f61e20786/src/libstore/store-api.cc#L63-L140
+[store-api.cc]: https://github.com/NixOS/nix/blob/691a1bd7179bcf88f2638c1b8574c81f61e20786/src/libstore/store-api.cc#L63-L140
 
 Hashing modulo
 --------------
@@ -139,10 +139,10 @@ Hashing modulo
 Back to our initial `pkgs.hello` store path. We were stuck at understanding the hash used there.
 
 ```
-/Nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello-2.10
+/nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello-2.10
 └── ab1pfk338f6gzpglsirxhvji4g9w558i
     └── 0fqqilza6ifk0arlay18ab1pfk338f6gzrpcb56pnaw245h8gv9r
-        └── "output:out:sha256:5d4447675168bb44442f0d225ab8b50b7a67544f0ba2104dbf74926ff4df1d1e:/Nix/store:hello-2.10"
+        └── "output:out:sha256:5d4447675168bb44442f0d225ab8b50b7a67544f0ba2104dbf74926ff4df1d1e:/nix/store:hello-2.10"
             └── 5d4447675168bb44442f0d225ab8b50b7a67544f0ba2104dbf74926ff4df1d1e
                 └── ???
 ```
@@ -154,32 +154,32 @@ The loop needs to be broken somewhere. That is why the output paths are replaced
 The other aspect comes from fixed-output paths. While the recipe to build them may vary (and hence their derive string) we would like to avoid propagating such changes to other derivations outputs.
 As fixed-output derivations can happen anywhere in the dependency tree, the process of replacing the hash of fixed-output derivations needs to be recursive. This is performed by `hashDerivationModulo()` whose name hints that the hashing is made modulo the equivalence of recipes for the same fixed-output paths.
 
-It means that instead of the former `Nix show-derivation` result, hashDerivationModulo ends up hashing a modified derive string.
+It means that instead of the former `nix show-derivation` result, hashDerivationModulo ends up hashing a modified derive string.
 
 ```json
 {
-  "/Nix/store/4pmrswlhqyclwpv12l1h7mr9qkfhpd1c-hello-2.10.drv +mased +modulo": {
+  "/nix/store/4pmrswlhqyclwpv12l1h7mr9qkfhpd1c-hello-2.10.drv +mased +modulo": {
     "outputs": {
       "out": { "path": "" } // masked
     },
-    "inputSrcs": [ "/Nix/store/9krlzvny65gdc8s7kpb6lkx8cd02c25b-default-builder.sh" ],
+    "inputSrcs": [ "/nix/store/9krlzvny65gdc8s7kpb6lkx8cd02c25b-default-builder.sh" ],
     "inputDrvs": {
       "103f297b7051255f2b7c1cd9838ee978d6ba392fb6ae2a6112d5816279c4ed14": [ "out" ], 
-      // hash modulo fixed-ouput derivations of /Nix/store/fsqdw7hjs2qdcy8qgcv5hnrajsr77xhc-bash-4.4-p23.drv
+      // hash modulo fixed-ouput derivations of /nix/store/fsqdw7hjs2qdcy8qgcv5hnrajsr77xhc-bash-4.4-p23.drv
       "26f653058a4d742a815b4d3a3c0721bca16200ffc48c22d62b3eb54164560856": [ "out" ],
-      // fixed hash of fixed-ouptut derivation /Nix/store/3x7dwzq014bblazs7kq20p9hyzz0qh8g-hello-2.10.tar.gz
-      // hash of the string 'fixed:out:sha256:31e066137a962676e89f69d1b65382de95a7ef7d914b8cb956f41ea72e0f516b:/Nix/store/3x7dwzq014bblazs7kq20p9hyzz0qh8g-hello-2.10.tar.gz'
+      // fixed hash of fixed-ouptut derivation /nix/store/3x7dwzq014bblazs7kq20p9hyzz0qh8g-hello-2.10.tar.gz
+      // hash of the string 'fixed:out:sha256:31e066137a962676e89f69d1b65382de95a7ef7d914b8cb956f41ea72e0f516b:/nix/store/3x7dwzq014bblazs7kq20p9hyzz0qh8g-hello-2.10.tar.gz'
       "a9365c39d2b7a2a8f2340da6e9814ca605f8dcefe4b49f5c44db7d9ed3bb031f": [ "out" ]
-      // hash modulo fixed-output derivations of /Nix/store/q0kiricfc0gkwm1vy3j0svcq5jib4v1g-stdenv-linux.drv
+      // hash modulo fixed-output derivations of /nix/store/q0kiricfc0gkwm1vy3j0svcq5jib4v1g-stdenv-linux.drv
     },
     "platform": "x86_64-linux",
-    "builder": "/Nix/store/6737cq9nvp4k5r70qcgf61004r0l2g3v-bash-4.4-p23/bin/bash",
-    "args": [ "-e", "/Nix/store/9krlzvny65gdc8s7kpb6lkx8cd02c25b-default-builder.sh" ],
+    "builder": "/nix/store/6737cq9nvp4k5r70qcgf61004r0l2g3v-bash-4.4-p23/bin/bash",
+    "args": [ "-e", "/nix/store/9krlzvny65gdc8s7kpb6lkx8cd02c25b-default-builder.sh" ],
     "env": {
       "name": "hello-2.10",
       "out": "", // masked
-      "src": "/Nix/store/3x7dwzq014bblazs7kq20p9hyzz0qh8g-hello-2.10.tar.gz",
-      "stdenv": "/Nix/store/50780gywsyjad8nxrf79q6qx7y7mqgal-stdenv-linux",
+      "src": "/nix/store/3x7dwzq014bblazs7kq20p9hyzz0qh8g-hello-2.10.tar.gz",
+      "stdenv": "/nix/store/50780gywsyjad8nxrf79q6qx7y7mqgal-stdenv-linux",
       // [still elided for brevity]
     }
   }

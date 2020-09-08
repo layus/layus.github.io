@@ -17,9 +17,9 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout
-      - uses: cachix/install-nix-action
-      - uses: cachix/cachix-action
+      - uses: actions/checkout@v2.3.2
+      # - uses: cachix/install-nix-action
+      - uses: cachix/cachix-action@v6
         with:
           name: layus
           signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'

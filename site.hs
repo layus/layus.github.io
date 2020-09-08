@@ -43,6 +43,7 @@ main = hakyll $ do
         route $ setExtension "html"
         compile $ pandocCompiler
             >>= loadAndApplyTemplate "templates/post.html"    postCtx
+            >>= saveSnapshot "content"
             >>= loadAndApplyTemplate "templates/default.html" postCtx
             >>= relativizeUrls
 
@@ -86,11 +87,35 @@ main = hakyll $ do
             >>= withItemBody (unixFilterLBS "convert" ["-density", "1200", "-trim", "PDF:-", "-flatten", "-resample", "300", "PNG:-"])
             >>= withItemBody (unixFilterLBS "exiftool" ["-all=", "-"])
 
+    create ["rss.xml"] $ do
+        route idRoute
+        compile (feedCompiler renderRss)
+
+    create ["atom.xml"] $ do
+        route idRoute
+        compile (feedCompiler renderAtom)
+
+
 --------------------------------------------------------------------------------
 postCtx :: Context String
 postCtx =
     dateField "date" "%B %e, %Y" `mappend`
     defaultContext
+
+myFeedConfiguration :: FeedConfiguration
+myFeedConfiguration = FeedConfiguration
+    { feedTitle       = "Layus' short musings"
+    , feedDescription = "A blog about build systems, Nix and everything"
+    , feedAuthorName  = "layus"
+    , feedAuthorEmail = "layus.on@gmail.com"
+    , feedRoot        = "http://layus.github.io"
+    }
+
+feedCompiler render = do
+    let feedCtx = postCtx <> bodyField "description"
+    posts <- fmap (take 10) . recentFirst =<<
+        loadAllSnapshots "posts/*" "content"
+    render myFeedConfiguration feedCtx posts
 
 pandocCompiler = pandocCompilerWithTransform defaultHakyllReaderOptions defaultHakyllWriterOptions filter
   where

@@ -1,0 +1,563 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"
+    xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <channel>
+        <title>Layus' short musings</title>
+        <link>http://layus.github.io</link>
+        <description><![CDATA[A blog about build systems, Nix and everything]]></description>
+        <atom:link href="http://layus.github.io/rss.xml" rel="self"
+                   type="application/rss+xml" />
+        <lastBuildDate>Tue, 01 Sep 2020 00:00:00 UT</lastBuildDate>
+        <item>
+    <title>How to Digest Nix Hashes ?</title>
+    <link>http://layus.github.io/posts/2020-09-01-nix-hashes.html</link>
+    <description><![CDATA[<article>
+    <section class="header">
+        Posted on September  1, 2020
+        
+            by layus
+        
+    </section>
+    <section>
+        <p>They say there are two hard things in computing: cache invalidation and naming things. Alas, build systems fight against these two at the same time. Because caching build results is a central feature of most build systems, they are immediately concerned by cache invalidation issues. For naming things, it is less obvious. I used to understand the naming problem as related to concepts and source code variables. Finding the right name for a class, a function or a variable can be a real headache.</p>
+<p>But it can also be difficult to generate a meaningful name for values manipulated by programs. Nix and a range of build systems have to forge unique and deterministic names for intermediate build results. These names are used as cache keys. In the case of Nix, the names are first class citizens as they are visible in the public store, in the form of store paths.</p>
+<p>Did you ever wonder what’s in your Nix hashes? Or how they are computed? Two different projects led me to further investigate these questions. Implementing <a href="https://github.com/haskell-Nix">HNix</a> store and shepherding the “Content addressed paths” <a href="https://github.com/NixOS/rfcs/pull/62">RFC #62</a>. In both cases, understanding how path names (and the other hashes) are generated took some time. Here is what I learned.</p>
+<h2 id="store-path-hashes">Store path hashes</h2>
+<p>The most visible digests in Nix appears in store path names. Lets take for example a pinned version of <code>hello</code>.</p>
+<div class="scroll-wrapper">
+<div class="sourceCode" id="cb1"><pre class="sourceCode nix"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true"></a><span class="bu">let</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true"></a>  <span class="ex">nixpkgs</span> = import (builtins.fetchTarball {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true"></a>    <span class="ex">url</span> = <span class="st">&quot;https://github.com/nixos/nixpkgs/archive/c59ea8b8a0e7f927e7291c14ea6cd1bd3a16ff38.tar.gz&quot;</span><span class="kw">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true"></a>    <span class="ex">sha256</span> = <span class="st">&quot;1ak7jqx94fjhc68xh1lh35kh3w3ndbadprrb762qgvcfb8351x8v&quot;</span><span class="kw">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true"></a>  }) {};</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true"></a><span class="kw">in</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true"></a>  <span class="ex">nixpkgs.hello</span> # =<span class="op">&gt;</span> /nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello-2.10</span></code></pre></div>
+</div>
+<p>Nix composes the hash part of the path by compressing to 32 base32 characters (160 bits or 20 bytes) a sha256 digest. Base32 encoding is unique to Nix. It uses digits and lower-case letters (except <a href="https://discourse.nixos.org/t/no-hashes-starting-with-e-t-o-or-u-in-nix-store/4906/1">EOUT</a>) for a total of 32 characters valid in a file name. The result is more dense than base16 while avoiding the strange characters of base64 (<code>+</code>, <code>/</code>, <code>=</code>) amongst which <code>/</code> would create a lot of trouble in file names.</p>
+<p>For example <code>/nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello-2.10</code> contains <code><b>ab1pfk338f6g</b>zpglsirxhvji4g9w558i</code> which is the compression on 20 bytes of <code>0fqqilza6ifk0arlay18<b>ab1pfk338f6g</b>zrpcb56pnaw245h8gv9r</code>. Basically folding excess bits with xor. Notice how some characters are shared, as the input is so small that some of them are passed as-is.</p>
+<div class="scroll-wrapper">
+<pre><code>  ab1pfk338f6gzrpcb56pnaw245h8gv9r
+^             0fqqilza6ifk0arlay18
+  --------------------------------
+= ab1pfk338f6gzpglsirxhvji4g9w558i</code></pre>
+</div>
+<p>The full (uncompressed) digest comes from hashing the string <code>output:out:sha256:5d4447675168bb44442f0d225ab8b50b7a67544f0ba2104dbf74926ff4df1d1e:/nix/store:hello-2.10</code>. This string is a fingerprint of the important parts of that derivation. If any part changes, the hash will be different, and it will produce a different output path.</p>
+<p>We can see four parts:</p>
+<ol type="1">
+<li><code>output:out</code> is the type of the fingerprint. Here we fingerprint something used for an output path. The output named <code>out</code> in this case. Nix uses various types, and each expects different things in the remainder of the string.</li>
+<li><code>sha256:5d4447675168bb44442f0d225ab8b50b7a67544f0ba2104dbf74926ff4df1d1e</code> is the hash of the derivation building hello. As a hash it encompasses many things, and we will explore that further below.</li>
+<li><code>/nix/store</code> is the store prefix.</li>
+<li><code>hello-2.10</code> is the name of the derivation.</li>
+</ol>
+<p>Hashing the derivation is a tricky part. Nix store a lot of information about derivations. To read it, we can use <code>nix show-derivation</code> on our <code>hello</code> package.</p>
+<div class="scroll-wrapper">
+<div class="sourceCode" id="cb3"><pre class="sourceCode json"><code class="sourceCode json"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true"></a><span class="fu">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true"></a>  <span class="dt">&quot;/nix/store/4pmrswlhqyclwpv12l1h7mr9qkfhpd1c-hello-2.10.drv&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true"></a>    <span class="dt">&quot;outputs&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true"></a>      <span class="dt">&quot;out&quot;</span><span class="fu">:</span> <span class="fu">{</span> <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;/nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello-2.10&quot;</span> <span class="fu">}</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true"></a>    <span class="fu">},</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true"></a>    <span class="dt">&quot;inputSrcs&quot;</span><span class="fu">:</span> <span class="ot">[</span> <span class="st">&quot;/nix/store/9krlzvny65gdc8s7kpb6lkx8cd02c25b-default-builder.sh&quot;</span> <span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true"></a>    <span class="dt">&quot;inputDrvs&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true"></a>      <span class="dt">&quot;/nix/store/fkz4j4zj7xaf1z1g0i29987dvvc3xxbv-hello-2.10.tar.gz.drv&quot;</span><span class="fu">:</span> <span class="ot">[</span> <span class="st">&quot;out&quot;</span> <span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true"></a>      <span class="dt">&quot;/nix/store/fsqdw7hjs2qdcy8qgcv5hnrajsr77xhc-bash-4.4-p23.drv&quot;</span><span class="fu">:</span> <span class="ot">[</span> <span class="st">&quot;out&quot;</span> <span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true"></a>      <span class="dt">&quot;/nix/store/q0kiricfc0gkwm1vy3j0svcq5jib4v1g-stdenv-linux.drv&quot;</span><span class="fu">:</span> <span class="ot">[</span> <span class="st">&quot;out&quot;</span> <span class="ot">]</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true"></a>    <span class="fu">},</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true"></a>    <span class="dt">&quot;platform&quot;</span><span class="fu">:</span> <span class="st">&quot;x86_64-linux&quot;</span><span class="fu">,</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true"></a>    <span class="dt">&quot;builder&quot;</span><span class="fu">:</span> <span class="st">&quot;/nix/store/6737cq9nvp4k5r70qcgf61004r0l2g3v-bash-4.4-p23/bin/bash&quot;</span><span class="fu">,</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true"></a>    <span class="dt">&quot;args&quot;</span><span class="fu">:</span> <span class="ot">[</span> <span class="st">&quot;-e&quot;</span><span class="ot">,</span> <span class="st">&quot;/nix/store/9krlzvny65gdc8s7kpb6lkx8cd02c25b-default-builder.sh&quot;</span> <span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true"></a>    <span class="dt">&quot;env&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true"></a>      <span class="dt">&quot;name&quot;</span><span class="fu">:</span> <span class="st">&quot;hello-2.10&quot;</span><span class="fu">,</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true"></a>      <span class="dt">&quot;out&quot;</span><span class="fu">:</span> <span class="st">&quot;/nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello-2.10&quot;</span><span class="fu">,</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true"></a>      <span class="dt">&quot;src&quot;</span><span class="fu">:</span> <span class="st">&quot;/nix/store/3x7dwzq014bblazs7kq20p9hyzz0qh8g-hello-2.10.tar.gz&quot;</span><span class="fu">,</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true"></a>      <span class="dt">&quot;stdenv&quot;</span><span class="fu">:</span> <span class="st">&quot;/nix/store/50780gywsyjad8nxrf79q6qx7y7mqgal-stdenv-linux&quot;</span><span class="fu">,</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true"></a>      <span class="er">//</span> <span class="er">[elided</span> <span class="er">for</span> <span class="er">brevity]</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true"></a>    <span class="fu">}</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true"></a>  <span class="fu">}</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true"></a><span class="fu">}</span></span></code></pre></div>
+</div>
+<p><code>show-derivation</code> pretty prints and reformats the content of the .drv file. The exact content of <code>/nix/store/4pmrswlhqyclwpv12l1h7mr9qkfhpd1c-hello-2.10.drv</code> is a nested structure starting with <code>"Derive("</code> and that’s why we will call it the <em>derive</em> string. It is formatted as an <a href="http://releases.strategoxt.org/strategoxt-manual/unstable/manual/chunk-chapter/stratego-terms.html#id3314115">ATerm</a> from the Stratego language. Curious readers will find more about this format in the related <a href="http://lethalman.blogspot.com/2014/07/nix-pill-6-our-first-derivation.html">nix pill</a>.</p>
+<div class="scroll-wrapper">
+<pre><code>$ cat /nix/store/4pmrswlhqyclwpv12l1h7mr9qkfhpd1c-hello-2.10.drv
+Derive([(&quot;out&quot;,&quot;/nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello-2.10&quot;,&quot;&quot;,&quot;&quot;)],[(&quot;/nix/store/fkz4j4zj7xaf1z1g0i29987dvvc3xxbv-hello-2.10.tar.gz.drv&quot;,[&quot;out&quot;]),(&quot;/nix/store/fsqdw7hjs2qdcy8qgcv5hnrajsr77xhc-bash-4.4-p23.drv&quot;,[&quot;out&quot;]),(&quot;/nix/store/q0kiricfc0gkwm1vy3j0svcq5jib4v1g-stdenv-linux.drv&quot;,[&quot;out&quot;])],[&quot;/nix/store/9krlzvny65gdc8s7kpb6lkx8cd02c25b-default-builder.sh&quot;],&quot;x86_64-linux&quot;,&quot;/nix/store/6737cq9nvp4k5r70qcgf61004r0l2g3v-bash-4.4-p23/bin/bash&quot;,[&quot;-e&quot;,&quot;/nix/store/9krlzvny65gdc8s7kpb6lkx8cd02c25b-default-builder.sh&quot;],[(&quot;buildInputs&quot;,&quot;&quot;),(&quot;builder&quot;,&quot;/nix/store/6737cq9nvp4k5r70qcgf61004r0l2g3v-bash-4.4-p23/bin/bash&quot;),(&quot;configureFlags&quot;,&quot;&quot;),(&quot;depsBuildBuild&quot;,&quot;&quot;),(&quot;depsBuildBuildPropagated&quot;,&quot;&quot;),(&quot;depsBuildTarget&quot;,&quot;&quot;),(&quot;depsBuildTargetPropagated&quot;,&quot;&quot;),(&quot;depsHostHost&quot;,&quot;&quot;),(&quot;depsHostHostPropagated&quot;,&quot;&quot;),(&quot;depsTargetTarget&quot;,&quot;&quot;),(&quot;depsTargetTargetPropagated&quot;,&quot;&quot;),(&quot;doCheck&quot;,&quot;1&quot;),(&quot;doInstallCheck&quot;,&quot;&quot;),(&quot;name&quot;,&quot;hello-2.10&quot;),(&quot;nativeBuildInputs&quot;,&quot;&quot;),(&quot;out&quot;,&quot;/nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello-2.10&quot;),(&quot;outputs&quot;,&quot;out&quot;),(&quot;patches&quot;,&quot;&quot;),(&quot;pname&quot;,&quot;hello&quot;),(&quot;propagatedBuildInputs&quot;,&quot;&quot;),(&quot;propagatedNativeBuildInputs&quot;,&quot;&quot;),(&quot;src&quot;,&quot;/nix/store/3x7dwzq014bblazs7kq20p9hyzz0qh8g-hello-2.10.tar.gz&quot;),(&quot;stdenv&quot;,&quot;/nix/store/50780gywsyjad8nxrf79q6qx7y7mqgal-stdenv-linux&quot;),(&quot;strictDeps&quot;,&quot;&quot;),(&quot;system&quot;,&quot;x86_64-linux&quot;),(&quot;version&quot;,&quot;2.10&quot;)])</code></pre>
+</div>
+<p>However, hashing this derive string directly does not yield the expected hash found above. (Do you recall the <code>sha256:5d4447675168bb44442f0d225ab8b50b7a67544f0ba2104dbf74926ff4df1d1e</code> ?)</p>
+<div class="scroll-wrapper">
+<pre><code>$ nix-hash --flat --type sha256 /nix/store/4pmrswlhqyclwpv12l1h7mr9qkfhpd1c-hello-2.10.drv
+40289ac3cc7d8896122c9a93ce580fb657aa29af6cf0a2bc4a30b3c53172ccf6</code></pre>
+</div>
+<p>To understand where this hash comes from, it helps to understand other types of store objects. Let’s make a small detour to simpler paths.</p>
+<h2 id="text-files">Text files</h2>
+<p>Raw text files whose content is know by Nix without running any builder are named by a comparatively simpler scheme. Their name is a digest over both the content and the name of the path.</p>
+<div class="scroll-wrapper">
+<pre><code>$ nix-instantiate --eval --expr &#39;builtins.toFile &quot;file-name&quot; &quot;some content&quot;&#39;
+/nix/store/gn48qr23kimj8iyh50jvffjx7335k9fz-file-name
+└── gn48qr23kimj8iyh50jvffjx7335k9fz
+    └── 0cl4lvq60bp9il749fyngn48qr23kimj8xalivaxf55lnp41s7h9
+        └── &quot;text:sha256:290f493c44f5d63d06b374d0a5abd292fae38b92cab2fae5efefe1b0e9347f56:/nix/store:file-name&quot;
+            └── 290f493c44f5d63d06b374d0a5abd292fae38b92cab2fae5efefe1b0e9347f56
+                └── &quot;some content&quot;</code></pre>
+</div>
+<p>The text format is also used by .drv files. But .drv files can depend on other .drv files. All the dependencies appear between the <code>text:</code> and <code>:sha256</code> part of the path description.</p>
+<div class="scroll-wrapper">
+<pre><code>/nix/store/4pmrswlhqyclwpv12l1h7mr9qkfhpd1c-hello-2.10.drv
+└── 4pmrswlhqyclwpv12l1h7mr9qkfhpd1c
+    └── 1c3ws0r5wm3ydx1zijcf4pmrswlhqyclxvqxqlqmv0spmfgg6zd2
+        └── &quot;text:[... dependant .drv&#39;s  ...]:sha256:40289ac3cc7d8896122c9a93ce580fb657aa29af6cf0a2bc4a30b3c53172ccf6:/nix/store:hello-2.10.drv&quot;
+            └── 40289ac3cc7d8896122c9a93ce580fb657aa29af6cf0a2bc4a30b3c53172ccf6
+                └── &quot;Derive([(&quot;out&quot;,&quot;... [content of /nix/store/4pmrswlhqyclwpv12l1h7mr9qkfhpd1c-hello-2.10.drv] ...&quot;</code></pre>
+</div>
+<p>All the different store path description strings are listed in <a href="https://github.com/NixOS/nix/blob/691a1bd7179bcf88f2638c1b8574c81f61e20786/src/libstore/store-api.cc#L63-L140">store-api.cc</a>. We have already seen ‘text’ right now and ‘output’ before. The third type is ‘source’, for some well-behaved, content addressed paths.</p>
+<h2 id="hashing-modulo">Hashing modulo</h2>
+<p>Back to our initial <code>pkgs.hello</code> store path. We were stuck at understanding the hash used there.</p>
+<div class="scroll-wrapper">
+<pre><code>/nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello-2.10
+└── ab1pfk338f6gzpglsirxhvji4g9w558i
+    └── 0fqqilza6ifk0arlay18ab1pfk338f6gzrpcb56pnaw245h8gv9r
+        └── &quot;output:out:sha256:5d4447675168bb44442f0d225ab8b50b7a67544f0ba2104dbf74926ff4df1d1e:/nix/store:hello-2.10&quot;
+            └── 5d4447675168bb44442f0d225ab8b50b7a67544f0ba2104dbf74926ff4df1d1e
+                └── ???</code></pre>
+</div>
+<p>Ideally, this would be the hash of the ‘derive’ string from the .drv. This is not the case because it would be impossible and undesirable. The impossibility comes from the fact that the output paths of a derivation are part of its ‘derive’ string. The loop needs to be broken somewhere. That is why the output paths are replaced with empty strings before hashing the ‘derive’ string used in output paths.</p>
+<p>The other aspect comes from fixed-output paths. While the recipe to build them may vary (and hence their derive string) we would like to avoid propagating such changes to other derivations outputs. As fixed-output derivations can happen anywhere in the dependency tree, the process of replacing the hash of fixed-output derivations needs to be recursive. This is performed by <code>hashDerivationModulo()</code> whose name hints that the hashing is made modulo the equivalence of recipes for the same fixed-output paths.</p>
+<p>It means that instead of the former <code>nix show-derivation</code> result, hashDerivationModulo ends up hashing a modified derive string.</p>
+<div class="scroll-wrapper">
+<div class="sourceCode" id="cb9"><pre class="sourceCode json"><code class="sourceCode json"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true"></a><span class="fu">{</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true"></a>  <span class="dt">&quot;/nix/store/4pmrswlhqyclwpv12l1h7mr9qkfhpd1c-hello-2.10.drv +mased +modulo&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true"></a>    <span class="dt">&quot;outputs&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true"></a>      <span class="dt">&quot;out&quot;</span><span class="fu">:</span> <span class="fu">{</span> <span class="dt">&quot;path&quot;</span><span class="fu">:</span> <span class="st">&quot;&quot;</span> <span class="fu">}</span> <span class="er">//</span> <span class="er">masked</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true"></a>    <span class="fu">},</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true"></a>    <span class="dt">&quot;inputSrcs&quot;</span><span class="fu">:</span> <span class="ot">[</span> <span class="st">&quot;/nix/store/9krlzvny65gdc8s7kpb6lkx8cd02c25b-default-builder.sh&quot;</span> <span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true"></a>    <span class="dt">&quot;inputDrvs&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true"></a>      <span class="dt">&quot;103f297b7051255f2b7c1cd9838ee978d6ba392fb6ae2a6112d5816279c4ed14&quot;</span><span class="fu">:</span> <span class="ot">[</span> <span class="st">&quot;out&quot;</span> <span class="ot">]</span><span class="fu">,</span> </span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true"></a>      <span class="er">//</span> <span class="er">hash</span> <span class="er">modulo</span> <span class="er">fixed-ouput</span> <span class="er">derivations</span> <span class="er">of</span> <span class="er">/nix/store/fsqdw7hjs2qdcy8qgcv5hnrajsr77xhc-bash-4.4-p23.drv</span></span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true"></a>      <span class="dt">&quot;26f653058a4d742a815b4d3a3c0721bca16200ffc48c22d62b3eb54164560856&quot;</span><span class="fu">:</span> <span class="ot">[</span> <span class="st">&quot;out&quot;</span> <span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true"></a>      <span class="er">//</span> <span class="er">fixed</span> <span class="er">hash</span> <span class="er">of</span> <span class="er">fixed-ouptut</span> <span class="er">derivation</span> <span class="er">/nix/store/3x7dwzq014bblazs7kq20p9hyzz0qh8g-hello-2.10.tar.gz</span></span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true"></a>      <span class="er">//</span> <span class="er">hash</span> <span class="er">of</span> <span class="er">the</span> <span class="er">string</span> <span class="er">&#39;fixed</span><span class="fu">:</span><span class="er">out:sha256:</span><span class="dv">31e066137</span><span class="er">a962676e89f69d1b65382de95a7ef7d914b8cb956f41ea72e0f516b:/nix/store/</span><span class="dv">3</span><span class="er">x7dwzq014bblazs7kq20p9hyzz0qh8g-hello</span><span class="fl">-2.10</span><span class="er">.tar.gz&#39;</span></span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true"></a>      <span class="st">&quot;a9365c39d2b7a2a8f2340da6e9814ca605f8dcefe4b49f5c44db7d9ed3bb031f&quot;</span><span class="er">:</span> <span class="ot">[</span> <span class="st">&quot;out&quot;</span> <span class="ot">]</span></span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true"></a>      <span class="er">//</span> <span class="er">hash</span> <span class="er">modulo</span> <span class="er">fixed-output</span> <span class="er">derivations</span> <span class="er">of</span> <span class="er">/nix/store/q0kiricfc0gkwm1vy3j0svcq5jib4v1g-stdenv-linux.drv</span></span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true"></a>    <span class="fu">},</span></span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true"></a>    <span class="dt">&quot;platform&quot;</span><span class="fu">:</span> <span class="st">&quot;x86_64-linux&quot;</span><span class="fu">,</span></span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true"></a>    <span class="dt">&quot;builder&quot;</span><span class="fu">:</span> <span class="st">&quot;/nix/store/6737cq9nvp4k5r70qcgf61004r0l2g3v-bash-4.4-p23/bin/bash&quot;</span><span class="fu">,</span></span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true"></a>    <span class="dt">&quot;args&quot;</span><span class="fu">:</span> <span class="ot">[</span> <span class="st">&quot;-e&quot;</span><span class="ot">,</span> <span class="st">&quot;/nix/store/9krlzvny65gdc8s7kpb6lkx8cd02c25b-default-builder.sh&quot;</span> <span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true"></a>    <span class="dt">&quot;env&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true"></a>      <span class="dt">&quot;name&quot;</span><span class="fu">:</span> <span class="st">&quot;hello-2.10&quot;</span><span class="fu">,</span></span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true"></a>      <span class="dt">&quot;out&quot;</span><span class="fu">:</span> <span class="st">&quot;&quot;</span><span class="fu">,</span> <span class="er">//</span> <span class="er">masked</span></span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true"></a>      <span class="dt">&quot;src&quot;</span><span class="fu">:</span> <span class="st">&quot;/nix/store/3x7dwzq014bblazs7kq20p9hyzz0qh8g-hello-2.10.tar.gz&quot;</span><span class="fu">,</span></span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true"></a>      <span class="dt">&quot;stdenv&quot;</span><span class="fu">:</span> <span class="st">&quot;/nix/store/50780gywsyjad8nxrf79q6qx7y7mqgal-stdenv-linux&quot;</span><span class="fu">,</span></span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true"></a>      <span class="er">//</span> <span class="er">[still</span> <span class="er">elided</span> <span class="er">for</span> <span class="er">brevity]</span></span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true"></a>    <span class="fu">}</span></span>
+<span id="cb9-26"><a href="#cb9-26" aria-hidden="true"></a>  <span class="fu">}</span></span>
+<span id="cb9-27"><a href="#cb9-27" aria-hidden="true"></a><span class="fu">}</span></span></code></pre></div>
+</div>
+<h2 id="recap">Recap</h2>
+<p>As we have seen, hashing in Nix is based on several concepts.</p>
+<dl>
+<dt>Description strings</dt>
+<dd>starting with a type, and separated with colons. Highly recognisable. They describe uniquely a ressource. In practice, we never encounter them, as they are always hashed with sha256.
+</dd>
+<dt>Hash compression</dt>
+<dd>The hash appearing in path names is a folded version of full digests. Nix compresses the hash to 32 base32 characters.
+</dd>
+<dt>Maksing</dt>
+<dd><em>Derive</em> strings contain the output paths of the derivation. As these output paths are generated based on a digest of the derivation itself, we have to break the loop. Masking is the process of removing output paths from a <em>derive</em> string before computing it’s hash.
+</dd>
+<dt>Hashing modulo [other derivations]</dt>
+<dd>Digests of derivations form a tree. Any change to a dependency’s <em>derive</em> string will propagate to all the dependant .drv paths and output paths. But it makes little sense to propagate changes in the recipe (the <em>derive</em> string) of a fixed output path. By definition, they will produce the same output regardless of their recipe. Nix computes output paths hashes on a tree of digests where fixed-output <em>derive</em> strings are replaced by the fixed-output hash.
+</dd>
+</dl>
+<h2 id="practical-issues">Practical issues</h2>
+<p>So much for technical considerations. What is this useful for? The way hashes are computed constrains how they can be computed and generated.</p>
+<p>In an HNix <a href="https://github.com/haskell-nix/hnix-store/pull/59#discussion_r429582370-permalink">discussion</a>, I discovered that the Nix daemon has two API calls to build derivations.</p>
+<p><code>opBuildPaths</code> is the most obvious one. It takes a list of pre-uploaded .drv files and triggers the build. Because a .drv depends on other .drv files, the full closure needs to be uploaded to the store upfront. In our example, that closure represents 280 .drv files to upload before starting the build. And <code>hello</code> is a relatively small package. This can slow down build times in distributed remote building situation where the builder responsible for a package may not be the one that built its dependencies. The machine will have to download all the .drv files when all it really needs is the <code>hello</code> .drv file and the build inputs paths.</p>
+<p>That is why <code>opBuildDerivation</code> was implemented. It takes all the information from a derivation and builds it. The input paths need to be uploaded beforehand, but nothing more. This nice feature come with a downside. As we have seen, the ouptut path of a derivation is computed with hashDerivationModulo, which requires the full closure of derivations to substitute the hashe of fixed-output ones. Without the closure, it is impossible for the builder to check the validity of an output path. That is why this API call is a privileged operation.</p>
+<p>Allowing unprivileged builds without the .drv closure is not an easy feature. As Eelco Dolstra states in the <a href="1511aa9f488ba0762c2da0bf8ab61b5fde47305d">commit introducing <code>opBuildDerivation</code></a>, it would require changing the hashing scheme. And finding the right balance is complicated. Using a hash “without modulo” means that changing <em>how</em> we build fixed-output derivations will propagate to all the package. Not hashing inputs makes it possible to obtain the same output path name for all the derivations that change only in their inputs. For example, updating gcc would not change our <code>hello</code> output path. You could get different things under the same name. Not an option.</p>
+<p>That sentence from Eelco Dolstra feels a bit like Fermat’s last theorem. While it seems to imply that there exists other hashing schemes, nothing is said about these schemes. Years later (the commit dates from 2015), the solution comes from a different angle. The long discussed, argued (and ultimately postponed) feature of a content-addressed store could bring builds without the .drv closure. Much like the proof of Fermat’s last theorem, the implementation of the content-addressed store comes long after the problem is sketched but, were it used only to solve that specific problem, would also feels like bringing an elephant to kill the mouse.</p>
+<h3 id="content-addressed-paths">Content-addressed paths</h3>
+<p>In the content-addressed store, output path names are not derived from their .drv, but from their content. Orthogonal changes to .drv files are not reflected in the name, and do not propagate. The name changes only if the content changes. The major downside is that output path names cannot be known before their content is made available. That’s why we need two names. On for the output path we want to build, and one for the actual content-addressed result.</p>
+<p>In such a setup, there is no need anymore for <code>hashDerivationModulo</code>. I tend to see <code>hashDerivationModulo</code> as a hack, a workaround to limit useless rebuilds as much as possible without having to implement the content-addressed store in its full complexity. That hack served us well over the years, and content-addressed stores are not yet implemented.</p>
+<!-- TODO: forward reference on intesion vs extension -->
+<h2 id="closing-thoughts">Closing thoughts</h2>
+<p>There is already a lot in this article, but we did not cover everything. There are several ways to upload a content-addressed path to the store, and content-addressed paths can also depend on other content-addressed paths. There are other funny corner cases here and there. But overall, this sketches the idea behind Nix store paths generation, and gives an idea of how derivations and store paths interact.</p>
+<p>I had to leave aside the detailed explanation of content-addressed stores, but this is perhaps not for long…</p>
+<p>This blog is still lacking a proper way to leave comments, but I would be more than happy to receive remarks, comments, advices and praises by email, or by any other channel if you are willing to wait more.</p>
+<h2 id="some-more-stuff-a.k.a.-annexes">Some more stuff (a.k.a. Annexes)</h2>
+<p>Things that did not fit elsewhere.</p>
+<p>A/ Python based hash compression.</p>
+<div class="scroll-wrapper">
+<div class="sourceCode" id="cb10"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true"></a><span class="co">&quot;&quot;&quot; XORing directly in base32, thanks to python &quot;&quot;&quot;</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true"></a></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true"></a>h <span class="op">=</span> <span class="st">&quot;0fqqilza6ifk0arlay18ab1pfk338f6gzrpcb56pnaw245h8gv9r&quot;</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true"></a>key <span class="op">=</span> <span class="st">&quot;0123456789abcdfghijklmnpqrsvwxyz&quot;</span> <span class="co"># no e,o,u,t</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true"></a><span class="co"># len(key) == 32</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true"></a></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true"></a><span class="kw">def</span> xor(a, b):</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true"></a>    <span class="cf">return</span> key[key.index(a) <span class="op">^</span> key.index(b)]</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true"></a><span class="co"># xor(&#39;0&#39;, &#39;a&#39;) == &#39;a&#39;</span></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true"></a></span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true"></a>h1, h2 <span class="op">=</span> h[<span class="op">-</span><span class="dv">32</span>:], <span class="st">&quot;</span><span class="sc">{:0&gt;32}</span><span class="st">&quot;</span>.<span class="bu">format</span>(h[:<span class="op">-</span><span class="dv">32</span>])</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true"></a>res <span class="op">=</span> <span class="st">&quot;&quot;</span>.join(xor(h1[i],h2[i]) <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">32</span>))</span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true"></a><span class="bu">print</span>(<span class="st">&quot;  </span><span class="sc">{}</span><span class="ch">\n</span><span class="st">^ </span><span class="sc">{}</span><span class="ch">\n</span><span class="st">  ---------------------------------</span><span class="ch">\n</span><span class="st">= </span><span class="sc">{}</span><span class="st">&quot;</span>.<span class="bu">format</span>(h1,h2,res))</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true"></a><span class="co"># prints:</span></span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true"></a><span class="co">&quot;&quot;&quot;</span></span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true"></a><span class="co">  ab1pfk338f6gzrpcb56pnaw245h8gv9r</span></span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true"></a><span class="co">^ 0000000000000fqqilza6ifk0arlay18</span></span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true"></a><span class="co">  ---------------------------------</span></span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true"></a><span class="co">= ab1pfk338f6gzpglsirxhvji4g9w558i</span></span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true"></a><span class="co">&quot;&quot;&quot;</span></span></code></pre></div>
+</div>
+<p>B/ Nix source code patch to trace digests being computed.</p>
+<div class="scroll-wrapper">
+<div class="sourceCode" id="cb11"><pre class="sourceCode diff"><code class="sourceCode diff"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true"></a><span class="kw">diff --git a/src/libutil/hash.cc b/src/libutil/hash.cc</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true"></a>index 4a94f0dfd..b06a08c79 100644</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true"></a><span class="dt">--- a/src/libutil/hash.cc</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true"></a><span class="dt">+++ b/src/libutil/hash.cc</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true"></a><span class="dt">@@ -316,6 +316,15 @@ Hash hashString(HashType ht, std::string_view s)</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true"></a>     start(ht, ctx);</span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true"></a>     update(ht, ctx, (const unsigned char *) s.data(), s.length());</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true"></a>     finish(ht, ctx, hash.hash);</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true"></a><span class="va">+    if (s.length() &gt; 500 &amp;&amp; s.data()[0] != &#39;D&#39;) {</span></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true"></a><span class="va">+        warn(&quot;Hashing %d characters with &#39;%s&#39;&quot;, s.length(), ht);</span></span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true"></a><span class="va">+        warn(&quot;base32: %s&quot;, hash.to_string(Base32, true));</span></span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true"></a><span class="va">+    } else {</span></span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true"></a><span class="va">+        warn(&quot;Hashing &#39;%s&#39; with &#39;%s&#39;&quot;, s, ht);</span></span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true"></a><span class="va">+        warn(&quot;base16: %s&quot;, hash.to_string(Base16, true));</span></span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true"></a><span class="va">+        warn(&quot;base32: %s&quot;, hash.to_string(Base32, true));</span></span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true"></a><span class="va">+        warn(&quot;base64: %s&quot;, hash.to_string(Base64, true));</span></span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true"></a><span class="va">+    }</span></span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true"></a>     return hash;</span>
+<span id="cb11-19"><a href="#cb11-19" aria-hidden="true"></a> }</span>
+<span id="cb11-20"><a href="#cb11-20" aria-hidden="true"></a> </span>
+<span id="cb11-21"><a href="#cb11-21" aria-hidden="true"></a><span class="dt">@@ -380,6 +389,7 @@ Hash compressHash(const Hash &amp; hash, unsigned int newSize)</span></span>
+<span id="cb11-22"><a href="#cb11-22" aria-hidden="true"></a>     h.hashSize = newSize;</span>
+<span id="cb11-23"><a href="#cb11-23" aria-hidden="true"></a>     for (unsigned int i = 0; i &lt; hash.hashSize; ++i)</span>
+<span id="cb11-24"><a href="#cb11-24" aria-hidden="true"></a>         h.hash[i % newSize] ^= hash.hash[i];</span>
+<span id="cb11-25"><a href="#cb11-25" aria-hidden="true"></a><span class="va">+    warn(&quot;Compressed &#39;%s&#39; to size %d: &#39;%s&#39;&quot;, hash.to_string(Base32, false), newSize, h.to_string(Base32, false));</span></span>
+<span id="cb11-26"><a href="#cb11-26" aria-hidden="true"></a>     return h;</span>
+<span id="cb11-27"><a href="#cb11-27" aria-hidden="true"></a> }</span></code></pre></div>
+</div>
+<p>C/ The full log of hashes generated for out <code>pkgs.hello</code> example with the above logging patch is available on <a href="https://gist.github.com/551fcccf4ddc1a851bc818ad2d21f8fb">gist</a>.</p>
+    </section>
+</article>
+]]></description>
+    <pubDate>Tue, 01 Sep 2020 00:00:00 UT</pubDate>
+    <guid>http://layus.github.io/posts/2020-09-01-nix-hashes.html</guid>
+    <dc:creator>layus</dc:creator>
+</item>
+<item>
+    <title>Monads vs. Waterfalls</title>
+    <link>http://layus.github.io/posts/2020-08-11-monads-vs-waterfall.html</link>
+    <description><![CDATA[<article>
+    <section class="header">
+        Posted on August 11, 2020
+        
+    </section>
+    <section>
+        <h1 id="monads-vs.-waterfalls">Monads vs. Waterfalls</h1>
+<p>I spent some times forging a solution to an advent of code problem (<a href="https://adventofcode.com/2018/day/17">day 17, 2018</a>). My initial algorithm was cluttered with updates to the same map, and maintaining the current position through an otherwise nice and simple recursive code. The result feels beatiful, and deserves its own spot in the internet.</p>
+<p>This post is a litteral haskell file. Compile and execute the <a href="https://github.com/layus/layus.github.io/blob/dev/posts/2020-08-11-monads-vs-waterfall.lhs">source</a> directly with ghc.</p>
+<p>If you do not want to read the full problem statement, you basically have to let water flow in a rocky underground. Water can either flow freely, or remain still in pockets of rocks.</p>
+<div class="scroll-wrapper">
+<pre><code>      +                      +       
+            #                |     # 
+ #  #       #           #  #||||   # 
+ #  #  #                #  #~~#|     
+ #  #  #                #  #~~#|     
+ #     #                #~~~~~#|     
+ #     #                #~~~~~#|     
+ #######         ==&gt;    #######|     
+                               |     
+                          |||||||||  
+    #     #               |#~~~~~#|  
+    #     #               |#~~~~~#|  
+    #     #               |#~~~~~#|  
+    #######               |#######|  </code></pre>
+</div>
+<p>We start with a few imports and a main function.</p>
+<div class="scroll-wrapper">
+<div class="sourceCode" id="cb2"><pre class="sourceCode haskell literate"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true"></a><span class="kw">import</span> <span class="kw">qualified</span> <span class="dt">Data.Map.Strict</span>    <span class="kw">as</span> <span class="dt">M</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true"></a><span class="kw">import</span> <span class="dt">Data.Map.Strict</span>              (<span class="dt">Map</span>)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true"></a><span class="kw">import</span> <span class="dt">Control.Arrow</span>                ((&amp;&amp;&amp;), (***), first, second)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true"></a><span class="kw">import</span> <span class="dt">Control.Monad</span>                (liftM2, join)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true"></a><span class="kw">import</span> <span class="dt">Data.Bool</span>                    (bool)</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true"></a><span class="kw">import</span> <span class="dt">Control.Monad.Reader</span>         (<span class="dt">ReaderT</span>, runReaderT, local, ask)</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true"></a><span class="kw">import</span> <span class="dt">Control.Monad.State.Strict</span>   (<span class="dt">State</span>, execState, modify, get)</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true"></a><span class="kw">import</span> <span class="dt">Text.Parsec</span>                  (many, count, (&lt;|&gt;), char, noneOf, newline, eof)</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true"></a><span class="kw">import</span> <span class="dt">Text.Parsec.String</span>           (<span class="dt">Parser</span>, parseFromFile)</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true"></a><span class="kw">import</span> <span class="dt">Text.Parsec.Number</span>           (nat)</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true"></a>main <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true"></a>    input <span class="ot">&lt;-</span> getInput <span class="st">&quot;input17.txt&quot;</span> day17parser</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true"></a>    <span class="kw">let</span> res  <span class="ot">=</span> <span class="fu">show</span> <span class="op">$</span> day17 input</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true"></a>        res&#39; <span class="ot">=</span> <span class="fu">show</span> <span class="op">$</span> day17bis input</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true"></a>    <span class="fu">putStrLn</span> <span class="op">$</span> <span class="st">&quot;Day 17 -- &quot;</span> <span class="op">&lt;&gt;</span> res <span class="op">&lt;&gt;</span> <span class="st">&quot; -- &quot;</span> <span class="op">&lt;&gt;</span> res&#39;</span></code></pre></div>
+</div>
+<p>Then four helper functions for parsing and handling input.</p>
+<div class="scroll-wrapper">
+<div class="sourceCode" id="cb3"><pre class="sourceCode haskell literate"><code class="sourceCode haskell"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true"></a><span class="co">-- | Get ((minX, maxX), (minY, maxY)) from a list of Pt with data</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true"></a><span class="ot">bounds ::</span> <span class="dt">Ord</span> a <span class="ot">=&gt;</span> [((a, a), b)] <span class="ot">-&gt;</span> ((a, a), (a, a))</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true"></a>bounds <span class="ot">=</span> join (<span class="op">***</span>) (<span class="fu">minimum</span> <span class="op">&amp;&amp;&amp;</span> <span class="fu">maximum</span>) <span class="op">.</span> <span class="fu">unzip</span> <span class="op">.</span> <span class="fu">map</span> <span class="fu">fst</span> </span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true"></a><span class="ot">parseLines ::</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> <span class="dt">Parser</span> [a]</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true"></a>parseLines p <span class="ot">=</span> many (p <span class="op">&lt;*</span> newline)</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true"></a><span class="ot">justNat ::</span> <span class="dt">Parser</span> <span class="dt">Int</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true"></a>justNat <span class="ot">=</span> many (noneOf <span class="st">&quot;0123456789\n&quot;</span>) <span class="op">*&gt;</span> nat <span class="op">&lt;*</span> many (noneOf <span class="st">&quot;0123456789\n&quot;</span>)</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true"></a><span class="ot">getInput ::</span> <span class="dt">FilePath</span> <span class="ot">-&gt;</span> <span class="dt">Parser</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> a</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true"></a>getInput path p <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true"></a>    input <span class="ot">&lt;-</span> parseFromFile (p <span class="op">&lt;*</span> eof) path </span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true"></a>    <span class="fu">either</span> (<span class="fu">error</span> <span class="op">.</span> <span class="fu">show</span>) <span class="fu">return</span> input</span></code></pre></div>
+</div>
+<p>Then comes the real stuff. We define the <code>Pt</code> type for position in the grid, and <code>Grid</code> to represent the ground with rocks. Follows a parser to make sense of the input, and one-liners to get the actual puzzle responses. We were asked the number of tiles with water, and then the number of tiles with still water only.</p>
+<div class="scroll-wrapper">
+<div class="sourceCode" id="cb4"><pre class="sourceCode haskell literate"><code class="sourceCode haskell"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true"></a><span class="co">-- Day 17</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true"></a><span class="kw">type</span> <span class="dt">Pt</span> <span class="ot">=</span> (<span class="dt">Int</span>, <span class="dt">Int</span>) </span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true"></a><span class="kw">type</span> <span class="dt">Grid</span> <span class="ot">=</span> <span class="dt">Map</span> <span class="dt">Pt</span> <span class="dt">Char</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true"></a><span class="ot">day17parser ::</span> <span class="dt">Parser</span> <span class="dt">Grid</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true"></a>day17parser <span class="ot">=</span> M.fromList <span class="op">.</span> <span class="fu">map</span> (\p <span class="ot">-&gt;</span> (p,<span class="ch">&#39;#&#39;</span>)) <span class="op">.</span> <span class="fu">concat</span> <span class="op">&lt;$&gt;</span> parseLines line <span class="kw">where</span> </span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true"></a>    line <span class="ot">=</span> <span class="kw">do</span> </span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true"></a>        axis <span class="ot">&lt;-</span> char <span class="ch">&#39;x&#39;</span> <span class="op">&lt;|&gt;</span> char <span class="ch">&#39;y&#39;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true"></a>        [a, b, c] <span class="ot">&lt;-</span> count <span class="dv">3</span> justNat</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true"></a>        <span class="kw">let</span> coord <span class="ot">=</span> <span class="kw">if</span> axis <span class="op">==</span> <span class="ch">&#39;x&#39;</span> <span class="kw">then</span> (,) a <span class="kw">else</span> <span class="fu">flip</span> (,) a</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true"></a>        <span class="fu">return</span> <span class="op">$</span> <span class="fu">map</span> coord (<span class="fu">enumFromTo</span> b c)</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true"></a></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true"></a><span class="co">-- # tiles with water, that is # non-rock tiles.</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true"></a>day17 <span class="ot">=</span> <span class="fu">length</span> <span class="op">.</span> <span class="fu">filter</span> (<span class="op">/=</span> <span class="ch">&#39;#&#39;</span>) <span class="op">.</span> M.elems</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true"></a><span class="co">-- # still water tiles</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true"></a>day17bis <span class="ot">=</span> <span class="fu">length</span> <span class="op">.</span> <span class="fu">filter</span> (<span class="op">==</span> <span class="ch">&#39;~&#39;</span>) <span class="op">.</span> M.elems</span></code></pre></div>
+</div>
+<h2 id="general-idea">General idea</h2>
+<p>We proceed by propagating the flow in different directions. Each propagation function returns a boolean to tell whether we overflowed in that direction.</p>
+<p>On overflows, we propagate in other directions, or mark water still. This is reflected by three operation. Pouring (down), filling (left and right) and “stilling” (marking water as still).</p>
+<p>The algorithm is a counter-intuitive we mark the current cell unconditionally and test the next one for being free. That is actually an invariant: always call the flow operators on a free cell. The only rationale for this rule is to mark cells at only one place, avoiding code duplication. You can check that there is only one location where we write ‘<code>|</code>’ and ‘<code>~</code>’ in the grid.</p>
+<h2 id="using-monads">Using monads</h2>
+<p>In this code, we have to carry around the current position in the grid and the grid itself. Because they are used everywhere, it turns out to be simpler not to handle them explicilty, but hide them away in the context of the computation. That is exactly what monads are for. Performing a computation in a context. In our context, we would like to have i) a mutable grid and ii) the current position.</p>
+<p>This is what the State and Reader monads are made for. The state monad carries a value that can be altered. The new value will be the only one available to subsequent computations.</p>
+<p>The reader monad is much like the state, except that the value can only be read, not altered. It is however possible to start new computations with a different value to be read. Think of it like a scope. All the computations in the same scope will read the same value, and there is no way for a scope to alter values in its parent.</p>
+<p>That is why we define a flow as a stack of two monads: state and reader. Monads wrap (or return) a value. In this case, our computations need to return whether they overflowed. So a Bool will do.</p>
+<div class="scroll-wrapper">
+<div class="sourceCode" id="cb5"><pre class="sourceCode haskell literate"><code class="sourceCode haskell"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true"></a><span class="co">-- | A Flow is a local action on the grid.</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true"></a><span class="kw">type</span> <span class="dt">Flow</span> <span class="ot">=</span> <span class="dt">ReaderT</span> <span class="dt">Pt</span> (<span class="dt">State</span> <span class="dt">Grid</span>) <span class="dt">Bool</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true"></a><span class="co">--          ^           ^           ^- A flow returns a boolean to tell whether it overflowed.</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true"></a><span class="co">--          |           `- The grid is a `modify`able implicit context.</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true"></a><span class="co">--          `- We can always `ask` our current position.</span></span></code></pre></div>
+</div>
+<p>As with every monads, we need to compose these actions. Usually, the result of a monadic computation can be fed into another. In this case, we would rather use the result to know if we should perform further actions.</p>
+<p>For example, we would like to perform the fill action only when the pouring overflowed. That is why we define custom operators for monads on booleans.</p>
+<p>The definition is obscure. It ensures that the operators fail fast, and only perform the second computation when the first one is not enough to determine the result. <code>&lt;&amp;&amp;&gt;</code>is the non fail-fast exception. Both computations are performed before collecting the results.</p>
+<div class="scroll-wrapper">
+<div class="sourceCode" id="cb6"><pre class="sourceCode haskell literate"><code class="sourceCode haskell"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true"></a><span class="kw">infixl</span> <span class="dv">1</span> <span class="op">&lt;&amp;&amp;&gt;</span>, <span class="op">||&gt;</span>, <span class="op">&amp;&amp;&gt;</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true"></a>(<span class="op">&amp;&amp;&gt;</span>), (<span class="op">||&gt;</span>),<span class="ot"> (&lt;&amp;&amp;&gt;) ::</span> (<span class="dt">Monad</span> m) <span class="ot">=&gt;</span> m <span class="dt">Bool</span> <span class="ot">-&gt;</span> m <span class="dt">Bool</span> <span class="ot">-&gt;</span> m <span class="dt">Bool</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true"></a>a  <span class="op">&amp;&amp;&gt;</span> b <span class="ot">=</span> a <span class="op">&gt;&gt;=</span> bool (<span class="fu">return</span> <span class="dt">False</span>) b</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true"></a>a  <span class="op">||&gt;</span> b <span class="ot">=</span> a <span class="op">&gt;&gt;=</span> bool b (<span class="fu">return</span> <span class="dt">True</span>)</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true"></a>a <span class="op">&lt;&amp;&amp;&gt;</span> b <span class="ot">=</span> liftM2 (<span class="op">&amp;&amp;</span>) a b</span></code></pre></div>
+</div>
+<p>So here is the real beast. We start pouring in a monadic context. The state is initialized with <code>grid</code>, and the reader with <code>(500, minY)</code>, the initial water source.</p>
+<div class="scroll-wrapper">
+<div class="sourceCode" id="cb7"><pre class="sourceCode haskell literate"><code class="sourceCode haskell"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true"></a><span class="ot">flow ::</span> <span class="dt">Grid</span> <span class="ot">-&gt;</span> <span class="dt">Grid</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true"></a>flow grid <span class="ot">=</span> <span class="fu">flip</span> execState grid <span class="op">$</span> <span class="fu">flip</span> runReaderT (<span class="dv">500</span>, minY) <span class="op">$</span> pour</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true"></a>  <span class="kw">where</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true"></a>    ((minX, maxX), (minY, maxY)) <span class="ot">=</span> bounds <span class="op">$</span> M.toList grid</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true"></a>    (left, right, down) <span class="ot">=</span> (first (<span class="fu">subtract</span> <span class="dv">1</span>), first (<span class="op">+</span><span class="dv">1</span>), second (<span class="op">+</span><span class="dv">1</span>))</span></code></pre></div>
+</div>
+<p>Generic, higher-order test for the content of a cell. You pass the action you want to perform when the current cell is free and get back an action that returns the overflow status. <code>ask</code> is the way to obtain the current position from the reader monad.</p>
+<div class="scroll-wrapper">
+<div class="sourceCode" id="cb8"><pre class="sourceCode haskell literate"><code class="sourceCode haskell"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true"></a><span class="ot">    onFree ::</span> <span class="dt">Flow</span> <span class="ot">-&gt;</span> <span class="dt">Flow</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true"></a>    onFree action <span class="ot">=</span> ask <span class="op">&gt;&gt;=</span> \(x, y) <span class="ot">-&gt;</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true"></a>        <span class="kw">if</span> y <span class="op">&gt;</span> maxY <span class="op">||</span> x <span class="op">&gt;</span> maxX<span class="op">+</span><span class="dv">10</span> <span class="op">||</span> x <span class="op">&lt;</span> minX<span class="op">-</span><span class="dv">10</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true"></a>        <span class="kw">then</span> <span class="fu">return</span> <span class="dt">False</span> <span class="co">-- border never overflows</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true"></a>        <span class="kw">else</span> M.lookup (x, y) <span class="op">&lt;$&gt;</span> get <span class="op">&gt;&gt;=</span> \cell <span class="ot">-&gt;</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true"></a>            <span class="kw">case</span> cell <span class="kw">of</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true"></a>                <span class="dt">Just</span> <span class="ch">&#39;|&#39;</span> <span class="ot">-&gt;</span> <span class="fu">return</span> <span class="dt">False</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true"></a>                <span class="dt">Just</span> _   <span class="ot">-&gt;</span> <span class="fu">return</span> <span class="dt">True</span></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true"></a>                <span class="dt">Nothing</span>  <span class="ot">-&gt;</span> action</span></code></pre></div>
+</div>
+<p>Then we define two more helpers functions.</p>
+<p><code>set</code> writes its argument <code>c</code> in the current cell. Because both the grid and the position are in the context, we only need to take <code>c</code> as parameter. <code>ask</code> gives the current position, which is in turn used to <code>modify</code> the grid. <code>modify</code> alters the state based on the provided <code>Grid -&gt; Grid</code> function.</p>
+<div class="scroll-wrapper">
+<div class="sourceCode" id="cb9"><pre class="sourceCode haskell literate"><code class="sourceCode haskell"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true"></a><span class="ot">    set ::</span> <span class="dt">Char</span> <span class="ot">-&gt;</span> <span class="dt">ReaderT</span> <span class="dt">Pt</span> (<span class="dt">State</span> <span class="dt">Grid</span>) ()</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true"></a>    set c <span class="ot">=</span> ask <span class="op">&gt;&gt;=</span> \pos <span class="ot">-&gt;</span> modify (M.insert pos c)</span></code></pre></div>
+</div>
+<p><code>sides</code> performs a flow operation in both directions (left and right). It overflows when both operations overflow.</p>
+<div class="scroll-wrapper">
+<div class="sourceCode" id="cb10"><pre class="sourceCode haskell literate"><code class="sourceCode haskell"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true"></a>    sides op <span class="ot">=</span> op left <span class="op">&lt;&amp;&amp;&gt;</span> op right</span></code></pre></div>
+</div>
+<h2 id="part-1-pour-water-below">Part 1: Pour water below</h2>
+<p>Pouring water down may have three outcomes. When it flows freely, nothing more has to be done. On overflow below, we need to propagate on the sides. If both sides also also overflow, we just mark the water as still on both sides.</p>
+<div class="scroll-wrapper">
+<div class="sourceCode" id="cb11"><pre class="sourceCode haskell literate"><code class="sourceCode haskell"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true"></a></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true"></a><span class="ot">    pour ::</span> <span class="dt">Flow</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true"></a>    pour <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true"></a>        <span class="co">-- Set current cell to &#39;|&#39;</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true"></a>        set <span class="ch">&#39;|&#39;</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true"></a>        <span class="co">-- `local` executes the action with a position modified by its first argument.</span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true"></a>        <span class="co">-- This new position is only visible to the action passed as second argument.</span></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true"></a>        local down <span class="op">$</span></span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true"></a>            <span class="co">-- The action (executed only when the cell is free) consists of</span></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true"></a>            <span class="co">-- pouring, filling and stilling in sequence, stopping when no</span></span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true"></a>            <span class="co">-- overflow occurs.</span></span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true"></a>            onFree (pour <span class="op">&amp;&amp;&gt;</span> sides fill <span class="op">&amp;&amp;&gt;</span> sides still)</span></code></pre></div>
+</div>
+<p>Introducing an alias like <code class="sourceCode haskell">onOverflow <span class="ot">=</span> (<span class="op">&amp;&amp;&gt;</span>)</code> could improve the wording. The last line would become <code class="sourceCode haskell">onFree (pour <span class="ot">`onOverflow`</span> sides fill <span class="ot">`onOverflow`</span> sides still)</code>.</p>
+<h2 id="part2-filling-on-the-sides">Part2: Filling on the sides</h2>
+<p>Filling is a symmetrical operation that needs to happen to the left and to the right of the current overflowing position. Overflows happen when both left and right filling operations overflow. It has to be called with <code>sides</code> as we did in <code>pour</code>.</p>
+<p><code>fill</code> is a one-liner. Move to the next position and try to pour when free. On overflow, continue filling further in the same direction.</p>
+<p>Notice that the argument <code>dir</code> represents the direction of pouring. It is a function <code class="sourceCode haskell"><span class="dt">Pt</span> <span class="ot">-&gt;</span> <span class="dt">Pt</span></code> that modifies a position.</p>
+<div class="scroll-wrapper">
+<div class="sourceCode" id="cb12"><pre class="sourceCode haskell literate"><code class="sourceCode haskell"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true"></a>    fill dir <span class="ot">=</span> local dir <span class="op">$</span> onFree (pour <span class="op">&amp;&amp;&gt;</span> fill dir)</span></code></pre></div>
+</div>
+<h2 id="part-3-marking-water-still">Part 3: Marking water still</h2>
+<p>This operation is simpler because we expect no overflows, and only work sideways, never downwards. Again, the operation is symmetrical, so we split it in two <code>still</code> operations, in each direction.</p>
+<p>Compared to above, we are no more interested in empty cells, but in non-still cells. We continue propagating as long as the current cell is not a rock (‘<code>#</code>’). By construction, we only encounter ‘<code>|</code>’ and ‘<code>#</code>’. Empty or still cells are impossible.</p>
+<div class="scroll-wrapper">
+<div class="sourceCode" id="cb13"><pre class="sourceCode haskell literate"><code class="sourceCode haskell"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true"></a>    still dir <span class="ot">=</span> <span class="kw">do</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true"></a>        set <span class="ch">&#39;~&#39;</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true"></a>        local dir (isRock <span class="op">||&gt;</span> still dir)</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true"></a>      <span class="kw">where</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true"></a>        <span class="co">-- cell cannot be free, action is irrelevant.</span></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true"></a>        isRock <span class="ot">=</span> onFree <span class="fu">undefined</span></span></code></pre></div>
+</div>
+<p>That’s all for the code.</p>
+<p>The code is dense. It means that it requires some concentration to break down the instructions. But overall, I love the way the essential operations appear as first class citizens. Solving the problem is a matter of chaining (<code>&amp;&amp;&gt;</code>) actions that</p>
+<ul>
+<li><code>set</code> values;</li>
+<li>move around (<code>local</code>);</li>
+<li><code>pour</code>, <code>fill</code> and <code>still</code> when <code>on free</code> cells.</li>
+</ul>
+    </section>
+</article>
+]]></description>
+    <pubDate>Tue, 11 Aug 2020 00:00:00 UT</pubDate>
+    <guid>http://layus.github.io/posts/2020-08-11-monads-vs-waterfall.html</guid>
+    <dc:creator>layus</dc:creator>
+</item>
+<item>
+    <title>Nix overlays: the fixpoint and the (over)layer cake</title>
+    <link>http://layus.github.io/posts/2020-06-12-nix-overlays.html</link>
+    <description><![CDATA[<article>
+    <section class="header">
+        Posted on June 12, 2020
+        
+    </section>
+    <section>
+        <h1 id="the-fixpoint-and-the-overlayer-cake">The fixpoint and the (over)layer cake</h1>
+<p>I am a big fan of the overlay system that Nix uses to allow modular tweaks to the otherwise monolithic and centralized nixpkgs. But the rules about their two arguments are crazy. Why should packages come from <code>self</code> and other things from <code>super</code>. Is it really important ?</p>
+<blockquote>
+<p>As I got started digging into these overlays and their mechanics, the post became a bit too involved. I decided to split it in two parts. This first part describes how overlays work, and why they have been implemented in that fashion. The <a href="/posts/nix-super-overlays">next</a> will dig deeper into the rules for a good use of <code>self</code> and <code>super</code>.</p>
+</blockquote>
+<p>The overlay system is best described by its architect, Nicolas B. Pierron (@<a href="https://github.com/nbp">nbp</a>) in his NixCon 2017 <a href="https://www.youtube.com/watch?v=W85mF1zWA2o">talk</a>. For those who, like me, prefer text resources for learning, I should also mention the <a href="https://nbp.github.io/slides/NixCon/2017.NixpkgsOverlays/">slides</a> of the presentation, as well as the relevant entries in the <a href="https://nixos.org/nixpkgs/manual/#chap-overlays">nixpkgs manual</a> and the <a href="https://nixos.wiki/wiki/Overlays">nixos wiki</a>.</p>
+<h2 id="overlays-primer">Overlays primer</h2>
+<p>Nixpkgs is a large set of nix packages maintained by the community. It can be seen as a mapping between package names and their definition.</p>
+<p>For representation purposes, we will make the assumption that a package (a <em>derivation</em> in nix parlance) is the result of calling a <em>deriving</em> (i.e. building) function with <em>i)</em> a version number and <em>ii)</em> other derivations as dependencies.</p>
+<p>Here is a simplified view of <code>nixpkgs</code> as can be obtained with a trivial call like <code>nix import &lt;nixpkgs&gt; {}</code>.</p>
+<figure>
+<img src="/images/2020-06-12-nix-overlays/nixpkgs.png" class="image-very-large" alt="" /><figcaption>The vanilla nixpkgs package set</figcaption>
+</figure>
+<p>We see that packages dependencies form a directed acyclic graph, a.k.a a <em>DAG</em>. Such graphs can be seen as simple trees for the majority of purposes. In such a graph, circular dependencies are impossible. While technically the Nix language allows to define such loops, they lead to <code>error: infinite recursion encountered</code> during evaluation. Properly behaved package sets do not do that, and so neither does nixpkgs.</p>
+<p>Leaf packages are not used by any other packages. This is the case for <code>firefox</code> in our contrived example. A few bootstrap packages do not depend on any other packages. In our example, it is <code>stdenv</code>.</p>
+<p>Nixpkgs is a huge monolith of code containing <a href="https://repology.org/repository/nix_unstable">over 60k packages</a>. In 2016, it even appeared in the <a href="https://web.archive.org/web/20160914231036/https://octoverse.github.com/">2016 edition of Github’s “State of the Octoverse”</a> report as the #6 repo in terms of code reviewers. While busy, the repository cannot accept every custom package of nixpkgs users. Nor can it accept private, licensed or in development packages. Enter “overlays”. The feature allows to make additions and modifications to the locally available nixpkgs package set.</p>
+<p>To add a new package or override an existing package, overlays merge the new definitions inside the main package set. This is an attribute set <em>update</em> operation, as defined by the corresponding nix <a href="https://nixos.org/nix/manual/#table-operators">“<code>//</code>” operator</a>.</p>
+<h2 id="a-naive-overlay">A naive overlay</h2>
+<p>Assuming you want a firefox built without pulseaudio, and prefer to use v71 instead of v70.1 provided in nixpkgs. You would have to define a new firefox derivation, and merge it into nixpkgs like this:</p>
+<div class="scroll-wrapper">
+<div class="sourceCode" id="cb1"><pre class="sourceCode nix"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true"></a><span class="bu">let</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true"></a>  <span class="ex">nixpkgs</span> = import <span class="op">&lt;</span>nixpkgs<span class="op">&gt;</span> {};</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true"></a>  <span class="ex">custom</span> = {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true"></a>    <span class="ex">firefox</span> = derive(<span class="st">&quot;71&quot;</span>, nixpkgs.zlib, nixpkgs.gcc, nixpkgs.stdenv)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true"></a>  }</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true"></a><span class="kw">in</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true"></a>  <span class="ex">nixpkgs</span> // custom</span></code></pre></div>
+</div>
+<p>This gets you an updated package set where the original definition of firefox is no more visible. The attribute <code>firefox</code> references your new, custom version.</p>
+<figure>
+<img src="/images/2020-06-12-nix-overlays/nixpkgs+ff.png" class="image-very-large" alt="" /><figcaption>An overlay for firefox</figcaption>
+</figure>
+<p>In the resulting package set, the attribute <code>firefox</code> will reference your new package. Such overlays can also be used to add new packages, by picking an attribute name that is not yet in use. For a custom version of firefox, it would also make sense to give it a unique name, like <code>firefox-custom</code>.</p>
+<p>This way of overlaying packages shows its limits when you want to modify an internal package in the dependency tree. Assuming that, for some reason, you would prefer your system to be compiled with gcc v8.1.1 instead of the provided v7.2.0. Working in the same way as above, you would obtain a package set where the attribute <code>gcc</code> references your new package, but all of the other packages are still being compiled with the old gcc. This is highlighted by the red references edges in our representation of package sets.</p>
+<figure>
+<img src="/images/2020-06-12-nix-overlays/nixpkgs+zlib.png" class="image-very-large" alt="" /><figcaption>The gcc overlay is not picked up by existing packages</figcaption>
+</figure>
+<p>Working only with attribute sets update (<code>//</code>), there is no way to propagate changes to an existing package set. To propagate overlays to existing packages, we need support from nixpkgs itself.</p>
+<h2 id="the-nixpkgs-fixpoint">The nixpkgs fixpoint</h2>
+<p>To support overlays, <span class="citation" data-cites="nbp">@nbp</span> modified nixpkgs in such a way that it does not depend on itself directly, but on some other theoretical package set that should contain roughly the sames packages as itself. Technically, nixpkgs is designed as a function that takes as input all the dependencies used by nixpkgs. At this point, I think a picture is worth a thousand linguistic wandering.</p>
+<figure>
+<img src="/images/2020-06-12-nix-overlays/nixpkgs_layers.png" class="image-very-large" alt="" /><figcaption>Nixpkgs uses inputs from a elsewhere</figcaption>
+</figure>
+<p>Of course, the only package set that could possibly provide all of the required dependencies is nixpkgs itself. <em>No problem!</em> Let’s just pass it as the input set to nixpkgs.</p>
+<figure>
+<img src="/images/2020-06-12-nix-overlays/nixpkgs_layers2.png" class="image-very-large" alt="" /><figcaption>Nixpkgs, built on top of nixpkgs</figcaption>
+</figure>
+<p>You probably already heard it, but nixpkgs is implemented as a fixpoint. The term may be frightening at first glance, but the idea is just to feed the nixpkgs function to itself, forever, so that there are no more dangling dependencies in nixpkgs. In terms of code, it amounts to an infinitely recursive definition.</p>
+<div class="scroll-wrapper">
+<div class="sourceCode" id="cb2"><pre class="sourceCode nix"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true"></a><span class="bu">let</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true"></a>  <span class="ex">nixpkgs_fun</span> = self: {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true"></a>    <span class="ex">firefox</span> = derive(<span class="st">&quot;70.1&quot;</span>, self.pulseaudio, self.zlib, ...)</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true"></a>    <span class="ex">pulseaudio</span> = ...</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true"></a>    <span class="ex">...</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true"></a>  };</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true"></a>  <span class="ex">nixpkgs</span> = nixpkgs_fun nixpkgs</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true"></a><span class="kw">in</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true"></a>  <span class="ex">nixpkgs</span></span></code></pre></div>
+</div>
+<p>Fear not, this recursion is not infinite in practice, because the Nix language is lazy. It is even quite efficient, because the definition of <code>nixpkgs</code> is shared. Which means that instead of copying the same nixpkgs function over and over, the pacakge set is made to reuse itself, the same actual value, computed lazily.</p>
+<h2 id="nixpkgs-overlays">Nixpkgs overlays</h2>
+<p>In nixpkgs overlays are added before feeding nixpkgs into itself. When the recursion is applied, nixpkgs uses the full stack of overlays to look for dependencies. This means that nixpkgs will catch the updated packages. I our former example with gcc, it means that all the packages depending on gcc will find the updated version, and build with it.</p>
+<figure>
+<img src="/images/2020-06-12-nix-overlays/nixpkgs_layers_plus.png" class="image-very-large" alt="" /><figcaption>The vanilla nixpkgs package set</figcaption>
+</figure>
+<blockquote>
+<p>Actually building this package set will take some time, as none of the newly defined packages exist in the binary cache. You will be rebuilding your whole package set from scratch.</p>
+</blockquote>
+<p>This kind of indirect references to other packages, so as to ply nicely with the nixpkgs fixpoint is done through the <code>self</code> argument of an overlay. That is, the first argument to the overlay function, as it is quite easy (and frequent) to mistype the arguments order. For the record, <code>self: super:</code> is the only right version.</p>
+<h2 id="the-super-nixpkgs">The <code>super</code> nixpkgs</h2>
+<p>But what is this <code>super</code> argument useful for then ? In case you want to make some modifications to an existing package. Like a patch for example. Let’s assume that you need a specific patch for your firefox. You could define an overlay like this.</p>
+<div class="scroll-wrapper">
+<div class="sourceCode" id="cb3"><pre class="sourceCode nix"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true"></a><span class="co"># In real life scenarios,</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true"></a><span class="co"># you would probably patch firefox-unwrapped instead</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true"></a><span class="ex">self</span>: super:</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true"></a><span class="kw">{</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true"></a>  <span class="ex">firefox</span> = super.firefox.overrideAttrs (oldAttrs: {</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true"></a>    <span class="ex">patches</span> = (oldAttrs.patches or []) <span class="ex">++</span> [ ./fixit.patch ]<span class="kw">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true"></a>  <span class="kw">}</span>;</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true"></a>}</span></code></pre></div>
+</div>
+<p>Using <code>self</code> here would make no sense, because it will end up being the very firefox you are trying to define. Nix will detect this loop, and raise the painful <code>error: infinite recursion encountered</code> described above.</p>
+<p>It makes little sense to use <code>self.fooBar</code> in the definition of <code>foobar</code> itself. After all, the names have been chosen for their similarity with inheritance models. <code>self</code> (sometimes called <code>this</code>) is the final object, while <code>super</code> is a reference to the previous class in the inheritance hierarchy.</p>
+<p>How much sense would this code make ?</p>
+<div class="scroll-wrapper">
+<div class="sourceCode" id="cb4"><pre class="sourceCode java"><code class="sourceCode java"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true"></a><span class="kw">class</span> Animal {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true"></a>  <span class="bu">String</span> <span class="fu">who</span>() {</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true"></a>    <span class="kw">return</span> <span class="st">&quot;animal&quot;</span>;</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true"></a>  }</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true"></a>}</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true"></a><span class="co">/// Just as for overlays, you should have used @super@</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true"></a><span class="kw">class</span> Dog <span class="kw">extends</span> Animal {</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true"></a>  <span class="bu">String</span> <span class="fu">who</span>() {</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true"></a>    <span class="kw">this</span>.<span class="fu">who</span>() + <span class="st">&quot; : dog&quot;</span>;</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true"></a>  }</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true"></a>}</span></code></pre></div>
+</div>
+<p>Now, you have all the keys to understand the concise diagram for overlays found on the nixos wiki. If you squint hard enough, you can even see the class diagram in there :-).</p>
+<figure>
+<img src="/images/2020-06-12-nix-overlays/overlay-self-super.png" class="image-very-large" alt="" /><figcaption>Overlays data flow – taken from the <a href="https://nixos.wiki/wiki/Overlays#Data_flow_of_overlays">Nixos Wiki</a></figcaption>
+</figure>
+<h2 id="rules-rules-rules">Rules, rules, rules</h2>
+<p>Now, just like three years ago, some corner cases make it hard to know when to use <code>super</code> and when to use <code>self</code>. There are some good examples in the NixCon presentation, but they do not make everything clear.</p>
+<p>For packages, the rule is simple. Use <code>self</code>, except when you want to override some pre-existing recipe. In that case use <code>super</code>. The rule conforms to the inheritance model for classes.</p>
+<p>For functions, and other values, it seems that <code>super</code> is the way to go. And it bugs me terribly since I defined a helper overlay for helper functions. As overlays have a precise order, using <code>super</code> may not find the function if your overlay happens to be included before the lib overlay…</p>
+<p>After some investigations, it turns out the reason behind using <code>self</code> only for packages is <em>grafting</em>. And that concept, as well as its impact on the design of overlays, will be explored in the next post.</p>
+    </section>
+</article>
+]]></description>
+    <pubDate>Fri, 12 Jun 2020 00:00:00 UT</pubDate>
+    <guid>http://layus.github.io/posts/2020-06-12-nix-overlays.html</guid>
+    <dc:creator>layus</dc:creator>
+</item>
+
+    </channel>
+</rss>

@@ -1,25 +1,24 @@
 let
   sources = import ./nix/sources.nix;
 in
-{ compiler ? "ghc884"
-, pkgs ? import <nixpkgs> {} #import sources.nixpkgs { }
+{ pkgs ? import sources.nixpkgs { }
 }:
 
 let
   inherit (pkgs.lib.trivial) flip pipe;
   inherit (pkgs.haskell.lib) appendPatch appendConfigureFlags;
 
-  haskellPackages = pkgs.haskell.packages.${compiler}.override {
+  haskellPackages = pkgs.haskellPackages.override {
     overrides = hpNew: hpOld: {
       hakyll =
         pipe
            hpOld.hakyll
-           [ (flip appendPatch ./hakyll.patch)
+           [ #(flip appendPatch ./hakyll.patch)
              (flip appendConfigureFlags [ "-f" "watchServer" "-f" "previewServer" ])
            ];
 
       #blog = hpNew.callCabal2nix "blog" ./. { };
-      blog = pkgs.haskell.packages.${compiler}.callPackage ({ mkDerivation, base, hakyll, hakyll-sass, stdenv }:
+      blog = pkgs.haskellPackages.callPackage ({ mkDerivation, base, hakyll, hakyll-sass, stdenv }:
         mkDerivation {
           pname = "blog-hakyll";
           version = "0.1.0.0";

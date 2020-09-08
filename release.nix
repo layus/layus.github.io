@@ -54,6 +54,7 @@ in
       (pkgs.texlive.combine { inherit (pkgs.texlive) scheme-medium stackengine tikzmark; })
       pkgs.imagemagick
       pkgs.cabal-install
+      pkgs.exiftool
     ];
     withHoogle = true;
   };

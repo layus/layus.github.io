@@ -95,7 +95,6 @@ main = hakyll $ do
         route idRoute
         compile (feedCompiler renderAtom)
 
-
 --------------------------------------------------------------------------------
 postCtx :: Context String
 postCtx =

@@ -343,20 +343,27 @@ code {
   font-size: .8em;
 }
 
-pre {
-  line-height: 1;
+div.scroll-wrapper {
   overflow: auto;
   visibility: hidden;
 }
 
-code {
-  text-overflow: ellipsis;
+div.scroll-wrapper > * {
   visibility: visible;
 }
 
-pre:hover,
-pre:focus {
+div.scroll-wrapper:hover,
+div.scroll-wrapper:focus {
   visibility: visible;
+}
+
+pre {
+  line-height: 1;
+  min-width: 0;
+}
+
+code {
+  text-overflow: ellipsis;
 }
 
 ul, ol {

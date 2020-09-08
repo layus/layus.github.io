@@ -25,10 +25,24 @@ jobs:
           signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
           # Only needed for private caches
           #authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-      - run: nix-build
-      - run: nix-shell --run "./result/bin/site build"
+      - name: Build
+        run: |
+          nix-build
+          nix-shell --run "./result/bin/site build"
+
+      - name: Propagate changes to master
+        run: |
+          git c master
+          rsync -a --filter='P _site/' --filter='P _cache/' --filter='P .git/' --filter='P .gitignore' --filter='P .github/' --filter='P .stack-work' --filter='P result' --filter='P site' --delete-excluded _site/ .
+
+      - name: Commit files
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add .
+          git commit -m "Automatic updates from https://github.com/layus/layus.github.io/commit/${GITHUB_SHA}"
   
-      - name: Release to mamster
+      - name: Release to master
         if: success()
         uses: ad-m/github-push-action@v0.6.0
         with:
@@ -43,4 +57,4 @@ jobs:
           # Determines if --tags is used
           tags: false
           # Directory to change to before pushing.
-          directory: _site
+          #directory: None

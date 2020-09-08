@@ -54,6 +54,7 @@ in
       pkgs.imagemagick
       pkgs.cabal-install
       pkgs.exiftool
+      pkgs.rsync
     ];
     withHoogle = true;
   };

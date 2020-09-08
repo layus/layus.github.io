@@ -32,7 +32,7 @@ jobs:
 
       - name: Propagate changes to master
         run: |
-          git c master
+          git checkout master
           rsync -a --filter='P _site/' --filter='P _cache/' --filter='P .git/' --filter='P .gitignore' --filter='P .github/' --filter='P .stack-work' --filter='P result' --filter='P site' --delete-excluded _site/ .
 
       - name: Commit files

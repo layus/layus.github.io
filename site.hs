@@ -1,10 +1,13 @@
 --------------------------------------------------------------------------------
 {-# LANGUAGE OverloadedStrings #-}
 import           Data.Monoid (mappend)
-import           Hakyll
+import           Hakyll hiding (pandocCompiler)
 import           Hakyll.Web.Sass (sassCompiler)
 
 import           Data.ByteString.Lazy.UTF8 (toString, fromString)
+
+import           Text.Pandoc.Definition     as Pandoc
+import           Text.Pandoc.Walk           as Pandoc
 
 --------------------------------------------------------------------------------
 main :: IO ()
@@ -81,6 +84,7 @@ main = hakyll $ do
             >>= withItemBody (unixFilterLBS "bash" ["-c", "pdfcrop -margins 10 - >(cat)"])
             -- >>= withItemBody (unixFilterLBS "convert" ["-density", "1200", "-trim", "PDF:-", "-quality", "100", "-flatten", "-sharpen", "0x1.0", "-resize", "25%", "PNG:-"])
             >>= withItemBody (unixFilterLBS "convert" ["-density", "1200", "-trim", "PDF:-", "-flatten", "-resample", "300", "PNG:-"])
+            >>= withItemBody (unixFilterLBS "exiftool" ["-all=", "-"])
 
 --------------------------------------------------------------------------------
 postCtx :: Context String
@@ -88,6 +92,12 @@ postCtx =
     dateField "date" "%B %e, %Y" `mappend`
     defaultContext
 
+pandocCompiler = pandocCompilerWithTransform defaultHakyllReaderOptions defaultHakyllWriterOptions filter
+  where
+    filter = Pandoc.walk wrapCode
+
+    wrapCode code@(Pandoc.CodeBlock _ _) = Pandoc.Div ("", ["scroll-wrapper"], []) [code]
+    wrapCode x = x
 
 --    match "tikz/**.tikz" $ version "1tex" $ do
 --        route   $ setExtension ".tex"

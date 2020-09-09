@@ -1,41 +1,17 @@
-<!doctype html>
-<html lang="en">
-    <head>
-        <meta charset="utf-8">
-        <meta http-equiv="x-ua-compatible" content="ie=edge">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Monads vs. Waterfalls</title>
-        <link rel="stylesheet" href="../css/default.css" />
-        <link rel="stylesheet" href="../css/syntax.css" />
-    </head>
-    <body>
-        <div id="navigation">
-            <header class="logo">
-                <a href="../about.html">
-                    <img src="../images/layus.png" alt style="width: 15rem;" />
-                </a>
-            </header>
-            <nav>
-                <a href="../">Home</a>
-                <a href="../about.html">About</a>
-                <a href="../contact.html">Contact</a>
-                <a href="../archive.html">Archive</a>
-            </nav>
-        </div>
-        <div id="content">
-            <header>
-                <h1>Monads vs. Waterfalls</h1>
-                <footer>
-                    
-                        Posted on August 11, 2020
-                        
-                        .
-                    
-                    
-                </footer>
-            </header>
-            <main role="main">
-                <article>
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"
+    xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <channel>
+        <title>Layus' short musings - Posts tagged 'advent of code'</title>
+        <link>http://blog.layus.be</link>
+        <description><![CDATA[A blog about build systems, Nix and everything]]></description>
+        <atom:link href="http://blog.layus.be/tags/advent%20of%20code.rss" rel="self"
+                   type="application/rss+xml" />
+        <lastBuildDate>Tue, 11 Aug 2020 00:00:00 UT</lastBuildDate>
+        <item>
+    <title>Monads vs. Waterfalls</title>
+    <link>http://blog.layus.be/posts/2020-08-11-monads-vs-waterfall.html</link>
+    <description><![CDATA[<article>
     <h1 id="monads-vs.-waterfalls">Monads vs. Waterfalls</h1>
 <p>I spent some times forging a solution to an advent of code problem (<a href="https://adventofcode.com/2018/day/17">day 17, 2018</a>). My initial algorithm was cluttered with updates to the same map, and maintaining the current position through an otherwise nice and simple recursive code. The result feels beatiful, and deserves its own spot in the internet.</p>
 <p>This post is a litteral haskell file. Compile and execute the <a href="https://github.com/layus/layus.github.io/blob/dev/posts/2020-08-11-monads-vs-waterfall.lhs">source</a> directly with ghc.</p>
@@ -73,8 +49,8 @@
 <span id="cb2-13"><a href="#cb2-13" aria-hidden="true"></a>main <span class="ot">=</span> <span class="kw">do</span></span>
 <span id="cb2-14"><a href="#cb2-14" aria-hidden="true"></a>    input <span class="ot">&lt;-</span> getInput <span class="st">&quot;input17.txt&quot;</span> day17parser</span>
 <span id="cb2-15"><a href="#cb2-15" aria-hidden="true"></a>    <span class="kw">let</span> res  <span class="ot">=</span> <span class="fu">show</span> <span class="op">$</span> day17 input</span>
-<span id="cb2-16"><a href="#cb2-16" aria-hidden="true"></a>        res' <span class="ot">=</span> <span class="fu">show</span> <span class="op">$</span> day17bis input</span>
-<span id="cb2-17"><a href="#cb2-17" aria-hidden="true"></a>    <span class="fu">putStrLn</span> <span class="op">$</span> <span class="st">&quot;Day 17 -- &quot;</span> <span class="op">&lt;&gt;</span> res <span class="op">&lt;&gt;</span> <span class="st">&quot; -- &quot;</span> <span class="op">&lt;&gt;</span> res'</span></code></pre></div>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true"></a>        res&#39; <span class="ot">=</span> <span class="fu">show</span> <span class="op">$</span> day17bis input</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true"></a>    <span class="fu">putStrLn</span> <span class="op">$</span> <span class="st">&quot;Day 17 -- &quot;</span> <span class="op">&lt;&gt;</span> res <span class="op">&lt;&gt;</span> <span class="st">&quot; -- &quot;</span> <span class="op">&lt;&gt;</span> res&#39;</span></code></pre></div>
 </div>
 <p>Then four helper functions for parsing and handling input.</p>
 <div class="scroll-wrapper">
@@ -101,17 +77,17 @@
 <span id="cb4-4"><a href="#cb4-4" aria-hidden="true"></a><span class="kw">type</span> <span class="dt">Grid</span> <span class="ot">=</span> <span class="dt">Map</span> <span class="dt">Pt</span> <span class="dt">Char</span></span>
 <span id="cb4-5"><a href="#cb4-5" aria-hidden="true"></a></span>
 <span id="cb4-6"><a href="#cb4-6" aria-hidden="true"></a><span class="ot">day17parser ::</span> <span class="dt">Parser</span> <span class="dt">Grid</span></span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true"></a>day17parser <span class="ot">=</span> M.fromList <span class="op">.</span> <span class="fu">map</span> (\p <span class="ot">-&gt;</span> (p,<span class="ch">'#'</span>)) <span class="op">.</span> <span class="fu">concat</span> <span class="op">&lt;$&gt;</span> parseLines line <span class="kw">where</span> </span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true"></a>day17parser <span class="ot">=</span> M.fromList <span class="op">.</span> <span class="fu">map</span> (\p <span class="ot">-&gt;</span> (p,<span class="ch">&#39;#&#39;</span>)) <span class="op">.</span> <span class="fu">concat</span> <span class="op">&lt;$&gt;</span> parseLines line <span class="kw">where</span> </span>
 <span id="cb4-8"><a href="#cb4-8" aria-hidden="true"></a>    line <span class="ot">=</span> <span class="kw">do</span> </span>
-<span id="cb4-9"><a href="#cb4-9" aria-hidden="true"></a>        axis <span class="ot">&lt;-</span> char <span class="ch">'x'</span> <span class="op">&lt;|&gt;</span> char <span class="ch">'y'</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true"></a>        axis <span class="ot">&lt;-</span> char <span class="ch">&#39;x&#39;</span> <span class="op">&lt;|&gt;</span> char <span class="ch">&#39;y&#39;</span></span>
 <span id="cb4-10"><a href="#cb4-10" aria-hidden="true"></a>        [a, b, c] <span class="ot">&lt;-</span> count <span class="dv">3</span> justNat</span>
-<span id="cb4-11"><a href="#cb4-11" aria-hidden="true"></a>        <span class="kw">let</span> coord <span class="ot">=</span> <span class="kw">if</span> axis <span class="op">==</span> <span class="ch">'x'</span> <span class="kw">then</span> (,) a <span class="kw">else</span> <span class="fu">flip</span> (,) a</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true"></a>        <span class="kw">let</span> coord <span class="ot">=</span> <span class="kw">if</span> axis <span class="op">==</span> <span class="ch">&#39;x&#39;</span> <span class="kw">then</span> (,) a <span class="kw">else</span> <span class="fu">flip</span> (,) a</span>
 <span id="cb4-12"><a href="#cb4-12" aria-hidden="true"></a>        <span class="fu">return</span> <span class="op">$</span> <span class="fu">map</span> coord (<span class="fu">enumFromTo</span> b c)</span>
 <span id="cb4-13"><a href="#cb4-13" aria-hidden="true"></a></span>
 <span id="cb4-14"><a href="#cb4-14" aria-hidden="true"></a><span class="co">-- # tiles with water, that is # non-rock tiles.</span></span>
-<span id="cb4-15"><a href="#cb4-15" aria-hidden="true"></a>day17 <span class="ot">=</span> <span class="fu">length</span> <span class="op">.</span> <span class="fu">filter</span> (<span class="op">/=</span> <span class="ch">'#'</span>) <span class="op">.</span> M.elems</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true"></a>day17 <span class="ot">=</span> <span class="fu">length</span> <span class="op">.</span> <span class="fu">filter</span> (<span class="op">/=</span> <span class="ch">&#39;#&#39;</span>) <span class="op">.</span> M.elems</span>
 <span id="cb4-16"><a href="#cb4-16" aria-hidden="true"></a><span class="co">-- # still water tiles</span></span>
-<span id="cb4-17"><a href="#cb4-17" aria-hidden="true"></a>day17bis <span class="ot">=</span> <span class="fu">length</span> <span class="op">.</span> <span class="fu">filter</span> (<span class="op">==</span> <span class="ch">'~'</span>) <span class="op">.</span> M.elems</span></code></pre></div>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true"></a>day17bis <span class="ot">=</span> <span class="fu">length</span> <span class="op">.</span> <span class="fu">filter</span> (<span class="op">==</span> <span class="ch">&#39;~&#39;</span>) <span class="op">.</span> M.elems</span></code></pre></div>
 </div>
 <h2 id="general-idea">General idea</h2>
 <p>We proceed by propagating the flow in different directions. Each propagation function returns a boolean to tell whether we overflowed in that direction.</p>
@@ -155,7 +131,7 @@
 <span id="cb8-4"><a href="#cb8-4" aria-hidden="true"></a>        <span class="kw">then</span> <span class="fu">return</span> <span class="dt">False</span> <span class="co">-- border never overflows</span></span>
 <span id="cb8-5"><a href="#cb8-5" aria-hidden="true"></a>        <span class="kw">else</span> M.lookup (x, y) <span class="op">&lt;$&gt;</span> get <span class="op">&gt;&gt;=</span> \cell <span class="ot">-&gt;</span></span>
 <span id="cb8-6"><a href="#cb8-6" aria-hidden="true"></a>            <span class="kw">case</span> cell <span class="kw">of</span></span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true"></a>                <span class="dt">Just</span> <span class="ch">'|'</span> <span class="ot">-&gt;</span> <span class="fu">return</span> <span class="dt">False</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true"></a>                <span class="dt">Just</span> <span class="ch">&#39;|&#39;</span> <span class="ot">-&gt;</span> <span class="fu">return</span> <span class="dt">False</span></span>
 <span id="cb8-8"><a href="#cb8-8" aria-hidden="true"></a>                <span class="dt">Just</span> _   <span class="ot">-&gt;</span> <span class="fu">return</span> <span class="dt">True</span></span>
 <span id="cb8-9"><a href="#cb8-9" aria-hidden="true"></a>                <span class="dt">Nothing</span>  <span class="ot">-&gt;</span> action</span></code></pre></div>
 </div>
@@ -175,8 +151,8 @@
 <div class="sourceCode" id="cb11"><pre class="sourceCode haskell literate"><code class="sourceCode haskell"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true"></a></span>
 <span id="cb11-2"><a href="#cb11-2" aria-hidden="true"></a><span class="ot">    pour ::</span> <span class="dt">Flow</span></span>
 <span id="cb11-3"><a href="#cb11-3" aria-hidden="true"></a>    pour <span class="ot">=</span> <span class="kw">do</span></span>
-<span id="cb11-4"><a href="#cb11-4" aria-hidden="true"></a>        <span class="co">-- Set current cell to '|'</span></span>
-<span id="cb11-5"><a href="#cb11-5" aria-hidden="true"></a>        set <span class="ch">'|'</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true"></a>        <span class="co">-- Set current cell to &#39;|&#39;</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true"></a>        set <span class="ch">&#39;|&#39;</span></span>
 <span id="cb11-6"><a href="#cb11-6" aria-hidden="true"></a>        <span class="co">-- `local` executes the action with a position modified by its first argument.</span></span>
 <span id="cb11-7"><a href="#cb11-7" aria-hidden="true"></a>        <span class="co">-- This new position is only visible to the action passed as second argument.</span></span>
 <span id="cb11-8"><a href="#cb11-8" aria-hidden="true"></a>        local down <span class="op">$</span></span>
@@ -198,7 +174,7 @@
 <p>Compared to above, we are no more interested in empty cells, but in non-still cells. We continue propagating as long as the current cell is not a rock (‘<code>#</code>’). By construction, we only encounter ‘<code>|</code>’ and ‘<code>#</code>’. Empty or still cells are impossible.</p>
 <div class="scroll-wrapper">
 <div class="sourceCode" id="cb13"><pre class="sourceCode haskell literate"><code class="sourceCode haskell"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true"></a>    still dir <span class="ot">=</span> <span class="kw">do</span></span>
-<span id="cb13-2"><a href="#cb13-2" aria-hidden="true"></a>        set <span class="ch">'~'</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true"></a>        set <span class="ch">&#39;~&#39;</span></span>
 <span id="cb13-3"><a href="#cb13-3" aria-hidden="true"></a>        local dir (isRock <span class="op">||&gt;</span> still dir)</span>
 <span id="cb13-4"><a href="#cb13-4" aria-hidden="true"></a>      <span class="kw">where</span></span>
 <span id="cb13-5"><a href="#cb13-5" aria-hidden="true"></a>        <span class="co">-- cell cannot be free, action is irrelevant.</span></span>
@@ -212,12 +188,11 @@
 <li><code>pour</code>, <code>fill</code> and <code>still</code> when <code>on free</code> cells.</li>
 </ul>
 </article>
+]]></description>
+    <pubDate>Tue, 11 Aug 2020 00:00:00 UT</pubDate>
+    <guid>http://blog.layus.be/posts/2020-08-11-monads-vs-waterfall.html</guid>
+    <dc:creator>Guillaume @layus Maudoux</dc:creator>
+</item>
 
-            </main>
-            <footer>
-                Site proudly generated by
-                <a href="http://jaspervdj.be/hakyll">Hakyll</a>
-            </footer>
-        </div>
-    </body>
-</html>
+    </channel>
+</rss>

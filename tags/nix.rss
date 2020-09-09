@@ -1,43 +1,17 @@
-<!doctype html>
-<html lang="en">
-    <head>
-        <meta charset="utf-8">
-        <meta http-equiv="x-ua-compatible" content="ie=edge">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>How to Digest Nix Hashes ?</title>
-        <link rel="stylesheet" href="../css/default.css" />
-        <link rel="stylesheet" href="../css/syntax.css" />
-    </head>
-    <body>
-        <div id="navigation">
-            <header class="logo">
-                <a href="../about.html">
-                    <img src="../images/layus.png" alt style="width: 15rem;" />
-                </a>
-            </header>
-            <nav>
-                <a href="../">Home</a>
-                <a href="../about.html">About</a>
-                <a href="../contact.html">Contact</a>
-                <a href="../archive.html">Archive</a>
-            </nav>
-        </div>
-        <div id="content">
-            <header>
-                <h1>How to Digest Nix Hashes ?</h1>
-                <footer>
-                    
-                        Posted on September  1, 2020
-                        
-                            by layus
-                        
-                        .
-                    
-                    
-                </footer>
-            </header>
-            <main role="main">
-                <article>
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"
+    xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <channel>
+        <title>Layus' short musings - Posts tagged 'nix'</title>
+        <link>http://blog.layus.be</link>
+        <description><![CDATA[A blog about build systems, Nix and everything]]></description>
+        <atom:link href="http://blog.layus.be/tags/nix.rss" rel="self"
+                   type="application/rss+xml" />
+        <lastBuildDate>Tue, 01 Sep 2020 00:00:00 UT</lastBuildDate>
+        <item>
+    <title>How to Digest Nix Hashes ?</title>
+    <link>http://blog.layus.be/posts/2020-09-01-nix-hashes.html</link>
+    <description><![CDATA[<article>
     <p>They say there are two hard things in computing: cache invalidation and naming things. Alas, build systems fight against these two at the same time. Because caching build results is a central feature of most build systems, they are immediately concerned by cache invalidation issues. For naming things, it is less obvious. I used to understand the naming problem as related to concepts and source code variables. Finding the right name for a class, a function or a variable can be a real headache.</p>
 <p>But it can also be difficult to generate a meaningful name for values manipulated by programs. Nix and a range of build systems have to forge unique and deterministic names for intermediate build results. These names are used as cache keys. In the case of Nix, the names are first class citizens as they are visible in the public store, in the form of store paths.</p>
 <p>Did you ever wonder what’s in your Nix hashes? Or how they are computed? Two different projects led me to further investigate these questions. Implementing <a href="https://github.com/haskell-Nix">HNix</a> store and shepherding the “Content addressed paths” <a href="https://github.com/NixOS/rfcs/pull/62">RFC #62</a>. In both cases, understanding how path names (and the other hashes) are generated took some time. Here is what I learned.</p>
@@ -108,7 +82,7 @@ Derive([(&quot;out&quot;,&quot;/nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello
 <h2 id="text-files">Text files</h2>
 <p>Raw text files whose content is know by Nix without running any builder are named by a comparatively simpler scheme. Their name is a digest over both the content and the name of the path.</p>
 <div class="scroll-wrapper">
-<pre><code>$ nix-instantiate --eval --expr 'builtins.toFile &quot;file-name&quot; &quot;some content&quot;'
+<pre><code>$ nix-instantiate --eval --expr &#39;builtins.toFile &quot;file-name&quot; &quot;some content&quot;&#39;
 /nix/store/gn48qr23kimj8iyh50jvffjx7335k9fz-file-name
 └── gn48qr23kimj8iyh50jvffjx7335k9fz
     └── 0cl4lvq60bp9il749fyngn48qr23kimj8xalivaxf55lnp41s7h9
@@ -121,7 +95,7 @@ Derive([(&quot;out&quot;,&quot;/nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello
 <pre><code>/nix/store/4pmrswlhqyclwpv12l1h7mr9qkfhpd1c-hello-2.10.drv
 └── 4pmrswlhqyclwpv12l1h7mr9qkfhpd1c
     └── 1c3ws0r5wm3ydx1zijcf4pmrswlhqyclxvqxqlqmv0spmfgg6zd2
-        └── &quot;text:[... dependant .drv's  ...]:sha256:40289ac3cc7d8896122c9a93ce580fb657aa29af6cf0a2bc4a30b3c53172ccf6:/nix/store:hello-2.10.drv&quot;
+        └── &quot;text:[... dependant .drv&#39;s  ...]:sha256:40289ac3cc7d8896122c9a93ce580fb657aa29af6cf0a2bc4a30b3c53172ccf6:/nix/store:hello-2.10.drv&quot;
             └── 40289ac3cc7d8896122c9a93ce580fb657aa29af6cf0a2bc4a30b3c53172ccf6
                 └── &quot;Derive([(&quot;out&quot;,&quot;... [content of /nix/store/4pmrswlhqyclwpv12l1h7mr9qkfhpd1c-hello-2.10.drv] ...&quot;</code></pre>
 </div>
@@ -151,7 +125,7 @@ Derive([(&quot;out&quot;,&quot;/nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello
 <span id="cb9-9"><a href="#cb9-9" aria-hidden="true"></a>      <span class="er">//</span> <span class="er">hash</span> <span class="er">modulo</span> <span class="er">fixed-ouput</span> <span class="er">derivations</span> <span class="er">of</span> <span class="er">/nix/store/fsqdw7hjs2qdcy8qgcv5hnrajsr77xhc-bash-4.4-p23.drv</span></span>
 <span id="cb9-10"><a href="#cb9-10" aria-hidden="true"></a>      <span class="dt">&quot;26f653058a4d742a815b4d3a3c0721bca16200ffc48c22d62b3eb54164560856&quot;</span><span class="fu">:</span> <span class="ot">[</span> <span class="st">&quot;out&quot;</span> <span class="ot">]</span><span class="fu">,</span></span>
 <span id="cb9-11"><a href="#cb9-11" aria-hidden="true"></a>      <span class="er">//</span> <span class="er">fixed</span> <span class="er">hash</span> <span class="er">of</span> <span class="er">fixed-ouptut</span> <span class="er">derivation</span> <span class="er">/nix/store/3x7dwzq014bblazs7kq20p9hyzz0qh8g-hello-2.10.tar.gz</span></span>
-<span id="cb9-12"><a href="#cb9-12" aria-hidden="true"></a>      <span class="er">//</span> <span class="er">hash</span> <span class="er">of</span> <span class="er">the</span> <span class="er">string</span> <span class="er">'fixed</span><span class="fu">:</span><span class="er">out:sha256:</span><span class="dv">31e066137</span><span class="er">a962676e89f69d1b65382de95a7ef7d914b8cb956f41ea72e0f516b:/nix/store/</span><span class="dv">3</span><span class="er">x7dwzq014bblazs7kq20p9hyzz0qh8g-hello</span><span class="fl">-2.10</span><span class="er">.tar.gz'</span></span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true"></a>      <span class="er">//</span> <span class="er">hash</span> <span class="er">of</span> <span class="er">the</span> <span class="er">string</span> <span class="er">&#39;fixed</span><span class="fu">:</span><span class="er">out:sha256:</span><span class="dv">31e066137</span><span class="er">a962676e89f69d1b65382de95a7ef7d914b8cb956f41ea72e0f516b:/nix/store/</span><span class="dv">3</span><span class="er">x7dwzq014bblazs7kq20p9hyzz0qh8g-hello</span><span class="fl">-2.10</span><span class="er">.tar.gz&#39;</span></span>
 <span id="cb9-13"><a href="#cb9-13" aria-hidden="true"></a>      <span class="st">&quot;a9365c39d2b7a2a8f2340da6e9814ca605f8dcefe4b49f5c44db7d9ed3bb031f&quot;</span><span class="er">:</span> <span class="ot">[</span> <span class="st">&quot;out&quot;</span> <span class="ot">]</span></span>
 <span id="cb9-14"><a href="#cb9-14" aria-hidden="true"></a>      <span class="er">//</span> <span class="er">hash</span> <span class="er">modulo</span> <span class="er">fixed-output</span> <span class="er">derivations</span> <span class="er">of</span> <span class="er">/nix/store/q0kiricfc0gkwm1vy3j0svcq5jib4v1g-stdenv-linux.drv</span></span>
 <span id="cb9-15"><a href="#cb9-15" aria-hidden="true"></a>    <span class="fu">},</span></span>
@@ -211,7 +185,7 @@ Derive([(&quot;out&quot;,&quot;/nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello
 <span id="cb10-6"><a href="#cb10-6" aria-hidden="true"></a></span>
 <span id="cb10-7"><a href="#cb10-7" aria-hidden="true"></a><span class="kw">def</span> xor(a, b):</span>
 <span id="cb10-8"><a href="#cb10-8" aria-hidden="true"></a>    <span class="cf">return</span> key[key.index(a) <span class="op">^</span> key.index(b)]</span>
-<span id="cb10-9"><a href="#cb10-9" aria-hidden="true"></a><span class="co"># xor('0', 'a') == 'a'</span></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true"></a><span class="co"># xor(&#39;0&#39;, &#39;a&#39;) == &#39;a&#39;</span></span>
 <span id="cb10-10"><a href="#cb10-10" aria-hidden="true"></a></span>
 <span id="cb10-11"><a href="#cb10-11" aria-hidden="true"></a>h1, h2 <span class="op">=</span> h[<span class="op">-</span><span class="dv">32</span>:], <span class="st">&quot;</span><span class="sc">{:0&gt;32}</span><span class="st">&quot;</span>.<span class="bu">format</span>(h[:<span class="op">-</span><span class="dv">32</span>])</span>
 <span id="cb10-12"><a href="#cb10-12" aria-hidden="true"></a>res <span class="op">=</span> <span class="st">&quot;&quot;</span>.join(xor(h1[i],h2[i]) <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">32</span>))</span>
@@ -234,11 +208,11 @@ Derive([(&quot;out&quot;,&quot;/nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello
 <span id="cb11-6"><a href="#cb11-6" aria-hidden="true"></a>     start(ht, ctx);</span>
 <span id="cb11-7"><a href="#cb11-7" aria-hidden="true"></a>     update(ht, ctx, (const unsigned char *) s.data(), s.length());</span>
 <span id="cb11-8"><a href="#cb11-8" aria-hidden="true"></a>     finish(ht, ctx, hash.hash);</span>
-<span id="cb11-9"><a href="#cb11-9" aria-hidden="true"></a><span class="va">+    if (s.length() &gt; 500 &amp;&amp; s.data()[0] != 'D') {</span></span>
-<span id="cb11-10"><a href="#cb11-10" aria-hidden="true"></a><span class="va">+        warn(&quot;Hashing %d characters with '%s'&quot;, s.length(), ht);</span></span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true"></a><span class="va">+    if (s.length() &gt; 500 &amp;&amp; s.data()[0] != &#39;D&#39;) {</span></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true"></a><span class="va">+        warn(&quot;Hashing %d characters with &#39;%s&#39;&quot;, s.length(), ht);</span></span>
 <span id="cb11-11"><a href="#cb11-11" aria-hidden="true"></a><span class="va">+        warn(&quot;base32: %s&quot;, hash.to_string(Base32, true));</span></span>
 <span id="cb11-12"><a href="#cb11-12" aria-hidden="true"></a><span class="va">+    } else {</span></span>
-<span id="cb11-13"><a href="#cb11-13" aria-hidden="true"></a><span class="va">+        warn(&quot;Hashing '%s' with '%s'&quot;, s, ht);</span></span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true"></a><span class="va">+        warn(&quot;Hashing &#39;%s&#39; with &#39;%s&#39;&quot;, s, ht);</span></span>
 <span id="cb11-14"><a href="#cb11-14" aria-hidden="true"></a><span class="va">+        warn(&quot;base16: %s&quot;, hash.to_string(Base16, true));</span></span>
 <span id="cb11-15"><a href="#cb11-15" aria-hidden="true"></a><span class="va">+        warn(&quot;base32: %s&quot;, hash.to_string(Base32, true));</span></span>
 <span id="cb11-16"><a href="#cb11-16" aria-hidden="true"></a><span class="va">+        warn(&quot;base64: %s&quot;, hash.to_string(Base64, true));</span></span>
@@ -250,18 +224,135 @@ Derive([(&quot;out&quot;,&quot;/nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello
 <span id="cb11-22"><a href="#cb11-22" aria-hidden="true"></a>     h.hashSize = newSize;</span>
 <span id="cb11-23"><a href="#cb11-23" aria-hidden="true"></a>     for (unsigned int i = 0; i &lt; hash.hashSize; ++i)</span>
 <span id="cb11-24"><a href="#cb11-24" aria-hidden="true"></a>         h.hash[i % newSize] ^= hash.hash[i];</span>
-<span id="cb11-25"><a href="#cb11-25" aria-hidden="true"></a><span class="va">+    warn(&quot;Compressed '%s' to size %d: '%s'&quot;, hash.to_string(Base32, false), newSize, h.to_string(Base32, false));</span></span>
+<span id="cb11-25"><a href="#cb11-25" aria-hidden="true"></a><span class="va">+    warn(&quot;Compressed &#39;%s&#39; to size %d: &#39;%s&#39;&quot;, hash.to_string(Base32, false), newSize, h.to_string(Base32, false));</span></span>
 <span id="cb11-26"><a href="#cb11-26" aria-hidden="true"></a>     return h;</span>
 <span id="cb11-27"><a href="#cb11-27" aria-hidden="true"></a> }</span></code></pre></div>
 </div>
 <p>C/ The full log of hashes generated for out <code>pkgs.hello</code> example with the above logging patch is available on <a href="https://gist.github.com/551fcccf4ddc1a851bc818ad2d21f8fb">gist</a>.</p>
 </article>
+]]></description>
+    <pubDate>Tue, 01 Sep 2020 00:00:00 UT</pubDate>
+    <guid>http://blog.layus.be/posts/2020-09-01-nix-hashes.html</guid>
+    <dc:creator>Guillaume @layus Maudoux</dc:creator>
+</item>
+<item>
+    <title>Nix overlays: the fixpoint and the (over)layer cake</title>
+    <link>http://blog.layus.be/posts/2020-06-12-nix-overlays.html</link>
+    <description><![CDATA[<article>
+    <h1 id="the-fixpoint-and-the-overlayer-cake">The fixpoint and the (over)layer cake</h1>
+<p>I am a big fan of the overlay system that Nix uses to allow modular tweaks to the otherwise monolithic and centralized nixpkgs. But the rules about their two arguments are crazy. Why should packages come from <code>self</code> and other things from <code>super</code>. Is it really important ?</p>
+<blockquote>
+<p>As I got started digging into these overlays and their mechanics, the post became a bit too involved. I decided to split it in two parts. This first part describes how overlays work, and why they have been implemented in that fashion. The <a href="/posts/nix-super-overlays">next</a> will dig deeper into the rules for a good use of <code>self</code> and <code>super</code>.</p>
+</blockquote>
+<p>The overlay system is best described by its architect, Nicolas B. Pierron (@<a href="https://github.com/nbp">nbp</a>) in his NixCon 2017 <a href="https://www.youtube.com/watch?v=W85mF1zWA2o">talk</a>. For those who, like me, prefer text resources for learning, I should also mention the <a href="https://nbp.github.io/slides/NixCon/2017.NixpkgsOverlays/">slides</a> of the presentation, as well as the relevant entries in the <a href="https://nixos.org/nixpkgs/manual/#chap-overlays">nixpkgs manual</a> and the <a href="https://nixos.wiki/wiki/Overlays">nixos wiki</a>.</p>
+<h2 id="overlays-primer">Overlays primer</h2>
+<p>Nixpkgs is a large set of nix packages maintained by the community. It can be seen as a mapping between package names and their definition.</p>
+<p>For representation purposes, we will make the assumption that a package (a <em>derivation</em> in nix parlance) is the result of calling a <em>deriving</em> (i.e. building) function with <em>i)</em> a version number and <em>ii)</em> other derivations as dependencies.</p>
+<p>Here is a simplified view of <code>nixpkgs</code> as can be obtained with a trivial call like <code>nix import &lt;nixpkgs&gt; {}</code>.</p>
+<figure>
+<img src="/images/2020-06-12-nix-overlays/nixpkgs.png" class="image-very-large" alt="" /><figcaption>The vanilla nixpkgs package set</figcaption>
+</figure>
+<p>We see that packages dependencies form a directed acyclic graph, a.k.a a <em>DAG</em>. Such graphs can be seen as simple trees for the majority of purposes. In such a graph, circular dependencies are impossible. While technically the Nix language allows to define such loops, they lead to <code>error: infinite recursion encountered</code> during evaluation. Properly behaved package sets do not do that, and so neither does nixpkgs.</p>
+<p>Leaf packages are not used by any other packages. This is the case for <code>firefox</code> in our contrived example. A few bootstrap packages do not depend on any other packages. In our example, it is <code>stdenv</code>.</p>
+<p>Nixpkgs is a huge monolith of code containing <a href="https://repology.org/repository/nix_unstable">over 60k packages</a>. In 2016, it even appeared in the <a href="https://web.archive.org/web/20160914231036/https://octoverse.github.com/">2016 edition of Github’s “State of the Octoverse”</a> report as the #6 repo in terms of code reviewers. While busy, the repository cannot accept every custom package of nixpkgs users. Nor can it accept private, licensed or in development packages. Enter “overlays”. The feature allows to make additions and modifications to the locally available nixpkgs package set.</p>
+<p>To add a new package or override an existing package, overlays merge the new definitions inside the main package set. This is an attribute set <em>update</em> operation, as defined by the corresponding nix <a href="https://nixos.org/nix/manual/#table-operators">“<code>//</code>” operator</a>.</p>
+<h2 id="a-naive-overlay">A naive overlay</h2>
+<p>Assuming you want a firefox built without pulseaudio, and prefer to use v71 instead of v70.1 provided in nixpkgs. You would have to define a new firefox derivation, and merge it into nixpkgs like this:</p>
+<div class="scroll-wrapper">
+<div class="sourceCode" id="cb1"><pre class="sourceCode nix"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true"></a><span class="bu">let</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true"></a>  <span class="ex">nixpkgs</span> = import <span class="op">&lt;</span>nixpkgs<span class="op">&gt;</span> {};</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true"></a>  <span class="ex">custom</span> = {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true"></a>    <span class="ex">firefox</span> = derive(<span class="st">&quot;71&quot;</span>, nixpkgs.zlib, nixpkgs.gcc, nixpkgs.stdenv)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true"></a>  }</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true"></a><span class="kw">in</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true"></a>  <span class="ex">nixpkgs</span> // custom</span></code></pre></div>
+</div>
+<p>This gets you an updated package set where the original definition of firefox is no more visible. The attribute <code>firefox</code> references your new, custom version.</p>
+<figure>
+<img src="/images/2020-06-12-nix-overlays/nixpkgs+ff.png" class="image-very-large" alt="" /><figcaption>An overlay for firefox</figcaption>
+</figure>
+<p>In the resulting package set, the attribute <code>firefox</code> will reference your new package. Such overlays can also be used to add new packages, by picking an attribute name that is not yet in use. For a custom version of firefox, it would also make sense to give it a unique name, like <code>firefox-custom</code>.</p>
+<p>This way of overlaying packages shows its limits when you want to modify an internal package in the dependency tree. Assuming that, for some reason, you would prefer your system to be compiled with gcc v8.1.1 instead of the provided v7.2.0. Working in the same way as above, you would obtain a package set where the attribute <code>gcc</code> references your new package, but all of the other packages are still being compiled with the old gcc. This is highlighted by the red references edges in our representation of package sets.</p>
+<figure>
+<img src="/images/2020-06-12-nix-overlays/nixpkgs+zlib.png" class="image-very-large" alt="" /><figcaption>The gcc overlay is not picked up by existing packages</figcaption>
+</figure>
+<p>Working only with attribute sets update (<code>//</code>), there is no way to propagate changes to an existing package set. To propagate overlays to existing packages, we need support from nixpkgs itself.</p>
+<h2 id="the-nixpkgs-fixpoint">The nixpkgs fixpoint</h2>
+<p>To support overlays, <span class="citation" data-cites="nbp">@nbp</span> modified nixpkgs in such a way that it does not depend on itself directly, but on some other theoretical package set that should contain roughly the sames packages as itself. Technically, nixpkgs is designed as a function that takes as input all the dependencies used by nixpkgs. At this point, I think a picture is worth a thousand linguistic wandering.</p>
+<figure>
+<img src="/images/2020-06-12-nix-overlays/nixpkgs_layers.png" class="image-very-large" alt="" /><figcaption>Nixpkgs uses inputs from a elsewhere</figcaption>
+</figure>
+<p>Of course, the only package set that could possibly provide all of the required dependencies is nixpkgs itself. <em>No problem!</em> Let’s just pass it as the input set to nixpkgs.</p>
+<figure>
+<img src="/images/2020-06-12-nix-overlays/nixpkgs_layers2.png" class="image-very-large" alt="" /><figcaption>Nixpkgs, built on top of nixpkgs</figcaption>
+</figure>
+<p>You probably already heard it, but nixpkgs is implemented as a fixpoint. The term may be frightening at first glance, but the idea is just to feed the nixpkgs function to itself, forever, so that there are no more dangling dependencies in nixpkgs. In terms of code, it amounts to an infinitely recursive definition.</p>
+<div class="scroll-wrapper">
+<div class="sourceCode" id="cb2"><pre class="sourceCode nix"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true"></a><span class="bu">let</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true"></a>  <span class="ex">nixpkgs_fun</span> = self: {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true"></a>    <span class="ex">firefox</span> = derive(<span class="st">&quot;70.1&quot;</span>, self.pulseaudio, self.zlib, ...)</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true"></a>    <span class="ex">pulseaudio</span> = ...</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true"></a>    <span class="ex">...</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true"></a>  };</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true"></a>  <span class="ex">nixpkgs</span> = nixpkgs_fun nixpkgs</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true"></a><span class="kw">in</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true"></a>  <span class="ex">nixpkgs</span></span></code></pre></div>
+</div>
+<p>Fear not, this recursion is not infinite in practice, because the Nix language is lazy. It is even quite efficient, because the definition of <code>nixpkgs</code> is shared. Which means that instead of copying the same nixpkgs function over and over, the pacakge set is made to reuse itself, the same actual value, computed lazily.</p>
+<h2 id="nixpkgs-overlays">Nixpkgs overlays</h2>
+<p>In nixpkgs overlays are added before feeding nixpkgs into itself. When the recursion is applied, nixpkgs uses the full stack of overlays to look for dependencies. This means that nixpkgs will catch the updated packages. I our former example with gcc, it means that all the packages depending on gcc will find the updated version, and build with it.</p>
+<figure>
+<img src="/images/2020-06-12-nix-overlays/nixpkgs_layers_plus.png" class="image-very-large" alt="" /><figcaption>The vanilla nixpkgs package set</figcaption>
+</figure>
+<blockquote>
+<p>Actually building this package set will take some time, as none of the newly defined packages exist in the binary cache. You will be rebuilding your whole package set from scratch.</p>
+</blockquote>
+<p>This kind of indirect references to other packages, so as to ply nicely with the nixpkgs fixpoint is done through the <code>self</code> argument of an overlay. That is, the first argument to the overlay function, as it is quite easy (and frequent) to mistype the arguments order. For the record, <code>self: super:</code> is the only right version.</p>
+<h2 id="the-super-nixpkgs">The <code>super</code> nixpkgs</h2>
+<p>But what is this <code>super</code> argument useful for then ? In case you want to make some modifications to an existing package. Like a patch for example. Let’s assume that you need a specific patch for your firefox. You could define an overlay like this.</p>
+<div class="scroll-wrapper">
+<div class="sourceCode" id="cb3"><pre class="sourceCode nix"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true"></a><span class="co"># In real life scenarios,</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true"></a><span class="co"># you would probably patch firefox-unwrapped instead</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true"></a><span class="ex">self</span>: super:</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true"></a><span class="kw">{</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true"></a>  <span class="ex">firefox</span> = super.firefox.overrideAttrs (oldAttrs: {</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true"></a>    <span class="ex">patches</span> = (oldAttrs.patches or []) <span class="ex">++</span> [ ./fixit.patch ]<span class="kw">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true"></a>  <span class="kw">}</span>;</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true"></a>}</span></code></pre></div>
+</div>
+<p>Using <code>self</code> here would make no sense, because it will end up being the very firefox you are trying to define. Nix will detect this loop, and raise the painful <code>error: infinite recursion encountered</code> described above.</p>
+<p>It makes little sense to use <code>self.fooBar</code> in the definition of <code>foobar</code> itself. After all, the names have been chosen for their similarity with inheritance models. <code>self</code> (sometimes called <code>this</code>) is the final object, while <code>super</code> is a reference to the previous class in the inheritance hierarchy.</p>
+<p>How much sense would this code make ?</p>
+<div class="scroll-wrapper">
+<div class="sourceCode" id="cb4"><pre class="sourceCode java"><code class="sourceCode java"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true"></a><span class="kw">class</span> Animal {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true"></a>  <span class="bu">String</span> <span class="fu">who</span>() {</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true"></a>    <span class="kw">return</span> <span class="st">&quot;animal&quot;</span>;</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true"></a>  }</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true"></a>}</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true"></a><span class="co">/// Just as for overlays, you should have used @super@</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true"></a><span class="kw">class</span> Dog <span class="kw">extends</span> Animal {</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true"></a>  <span class="bu">String</span> <span class="fu">who</span>() {</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true"></a>    <span class="kw">this</span>.<span class="fu">who</span>() + <span class="st">&quot; : dog&quot;</span>;</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true"></a>  }</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true"></a>}</span></code></pre></div>
+</div>
+<p>Now, you have all the keys to understand the concise diagram for overlays found on the nixos wiki. If you squint hard enough, you can even see the class diagram in there :-).</p>
+<figure>
+<img src="/images/2020-06-12-nix-overlays/overlay-self-super.png" class="image-very-large" alt="" /><figcaption>Overlays data flow – taken from the <a href="https://nixos.wiki/wiki/Overlays#Data_flow_of_overlays">Nixos Wiki</a></figcaption>
+</figure>
+<h2 id="rules-rules-rules">Rules, rules, rules</h2>
+<p>Now, just like three years ago, some corner cases make it hard to know when to use <code>super</code> and when to use <code>self</code>. There are some good examples in the NixCon presentation, but they do not make everything clear.</p>
+<p>For packages, the rule is simple. Use <code>self</code>, except when you want to override some pre-existing recipe. In that case use <code>super</code>. The rule conforms to the inheritance model for classes.</p>
+<p>For functions, and other values, it seems that <code>super</code> is the way to go. And it bugs me terribly since I defined a helper overlay for helper functions. As overlays have a precise order, using <code>super</code> may not find the function if your overlay happens to be included before the lib overlay…</p>
+<p>After some investigations, it turns out the reason behind using <code>self</code> only for packages is <em>grafting</em>. And that concept, as well as its impact on the design of overlays, will be explored in the next post.</p>
+</article>
+]]></description>
+    <pubDate>Fri, 12 Jun 2020 00:00:00 UT</pubDate>
+    <guid>http://blog.layus.be/posts/2020-06-12-nix-overlays.html</guid>
+    <dc:creator>Guillaume @layus Maudoux</dc:creator>
+</item>
 
-            </main>
-            <footer>
-                Site proudly generated by
-                <a href="http://jaspervdj.be/hakyll">Hakyll</a>
-            </footer>
-        </div>
-    </body>
-</html>
+    </channel>
+</rss>

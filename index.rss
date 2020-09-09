@@ -2,24 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"
     xmlns:dc="http://purl.org/dc/elements/1.1/">
     <channel>
-        <title>Layus' short musings</title>
-        <link>http://layus.github.io</link>
+        <title>Layus' short musings - All posts</title>
+        <link>http://blog.layus.be</link>
         <description><![CDATA[A blog about build systems, Nix and everything]]></description>
-        <atom:link href="http://layus.github.io/rss.xml" rel="self"
+        <atom:link href="http://blog.layus.be/index.rss" rel="self"
                    type="application/rss+xml" />
         <lastBuildDate>Tue, 01 Sep 2020 00:00:00 UT</lastBuildDate>
         <item>
     <title>How to Digest Nix Hashes ?</title>
-    <link>http://layus.github.io/posts/2020-09-01-nix-hashes.html</link>
+    <link>http://blog.layus.be/posts/2020-09-01-nix-hashes.html</link>
     <description><![CDATA[<article>
-    <section class="header">
-        Posted on September  1, 2020
-        
-            by layus
-        
-    </section>
-    <section>
-        <p>They say there are two hard things in computing: cache invalidation and naming things. Alas, build systems fight against these two at the same time. Because caching build results is a central feature of most build systems, they are immediately concerned by cache invalidation issues. For naming things, it is less obvious. I used to understand the naming problem as related to concepts and source code variables. Finding the right name for a class, a function or a variable can be a real headache.</p>
+    <p>They say there are two hard things in computing: cache invalidation and naming things. Alas, build systems fight against these two at the same time. Because caching build results is a central feature of most build systems, they are immediately concerned by cache invalidation issues. For naming things, it is less obvious. I used to understand the naming problem as related to concepts and source code variables. Finding the right name for a class, a function or a variable can be a real headache.</p>
 <p>But it can also be difficult to generate a meaningful name for values manipulated by programs. Nix and a range of build systems have to forge unique and deterministic names for intermediate build results. These names are used as cache keys. In the case of Nix, the names are first class citizens as they are visible in the public store, in the form of store paths.</p>
 <p>Did you ever wonder what’s in your Nix hashes? Or how they are computed? Two different projects led me to further investigate these questions. Implementing <a href="https://github.com/haskell-Nix">HNix</a> store and shepherding the “Content addressed paths” <a href="https://github.com/NixOS/rfcs/pull/62">RFC #62</a>. In both cases, understanding how path names (and the other hashes) are generated took some time. Here is what I learned.</p>
 <h2 id="store-path-hashes">Store path hashes</h2>
@@ -236,23 +229,17 @@ Derive([(&quot;out&quot;,&quot;/nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello
 <span id="cb11-27"><a href="#cb11-27" aria-hidden="true"></a> }</span></code></pre></div>
 </div>
 <p>C/ The full log of hashes generated for out <code>pkgs.hello</code> example with the above logging patch is available on <a href="https://gist.github.com/551fcccf4ddc1a851bc818ad2d21f8fb">gist</a>.</p>
-    </section>
 </article>
 ]]></description>
     <pubDate>Tue, 01 Sep 2020 00:00:00 UT</pubDate>
-    <guid>http://layus.github.io/posts/2020-09-01-nix-hashes.html</guid>
-    <dc:creator>layus</dc:creator>
+    <guid>http://blog.layus.be/posts/2020-09-01-nix-hashes.html</guid>
+    <dc:creator>Guillaume @layus Maudoux</dc:creator>
 </item>
 <item>
     <title>Monads vs. Waterfalls</title>
-    <link>http://layus.github.io/posts/2020-08-11-monads-vs-waterfall.html</link>
+    <link>http://blog.layus.be/posts/2020-08-11-monads-vs-waterfall.html</link>
     <description><![CDATA[<article>
-    <section class="header">
-        Posted on August 11, 2020
-        
-    </section>
-    <section>
-        <h1 id="monads-vs.-waterfalls">Monads vs. Waterfalls</h1>
+    <h1 id="monads-vs.-waterfalls">Monads vs. Waterfalls</h1>
 <p>I spent some times forging a solution to an advent of code problem (<a href="https://adventofcode.com/2018/day/17">day 17, 2018</a>). My initial algorithm was cluttered with updates to the same map, and maintaining the current position through an otherwise nice and simple recursive code. The result feels beatiful, and deserves its own spot in the internet.</p>
 <p>This post is a litteral haskell file. Compile and execute the <a href="https://github.com/layus/layus.github.io/blob/dev/posts/2020-08-11-monads-vs-waterfall.lhs">source</a> directly with ghc.</p>
 <p>If you do not want to read the full problem statement, you basically have to let water flow in a rocky underground. Water can either flow freely, or remain still in pockets of rocks.</p>
@@ -427,23 +414,17 @@ Derive([(&quot;out&quot;,&quot;/nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello
 <li>move around (<code>local</code>);</li>
 <li><code>pour</code>, <code>fill</code> and <code>still</code> when <code>on free</code> cells.</li>
 </ul>
-    </section>
 </article>
 ]]></description>
     <pubDate>Tue, 11 Aug 2020 00:00:00 UT</pubDate>
-    <guid>http://layus.github.io/posts/2020-08-11-monads-vs-waterfall.html</guid>
-    <dc:creator>layus</dc:creator>
+    <guid>http://blog.layus.be/posts/2020-08-11-monads-vs-waterfall.html</guid>
+    <dc:creator>Guillaume @layus Maudoux</dc:creator>
 </item>
 <item>
     <title>Nix overlays: the fixpoint and the (over)layer cake</title>
-    <link>http://layus.github.io/posts/2020-06-12-nix-overlays.html</link>
+    <link>http://blog.layus.be/posts/2020-06-12-nix-overlays.html</link>
     <description><![CDATA[<article>
-    <section class="header">
-        Posted on June 12, 2020
-        
-    </section>
-    <section>
-        <h1 id="the-fixpoint-and-the-overlayer-cake">The fixpoint and the (over)layer cake</h1>
+    <h1 id="the-fixpoint-and-the-overlayer-cake">The fixpoint and the (over)layer cake</h1>
 <p>I am a big fan of the overlay system that Nix uses to allow modular tweaks to the otherwise monolithic and centralized nixpkgs. But the rules about their two arguments are crazy. Why should packages come from <code>self</code> and other things from <code>super</code>. Is it really important ?</p>
 <blockquote>
 <p>As I got started digging into these overlays and their mechanics, the post became a bit too involved. I decided to split it in two parts. This first part describes how overlays work, and why they have been implemented in that fashion. The <a href="/posts/nix-super-overlays">next</a> will dig deeper into the rules for a good use of <code>self</code> and <code>super</code>.</p>
@@ -551,12 +532,11 @@ Derive([(&quot;out&quot;,&quot;/nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello
 <p>For packages, the rule is simple. Use <code>self</code>, except when you want to override some pre-existing recipe. In that case use <code>super</code>. The rule conforms to the inheritance model for classes.</p>
 <p>For functions, and other values, it seems that <code>super</code> is the way to go. And it bugs me terribly since I defined a helper overlay for helper functions. As overlays have a precise order, using <code>super</code> may not find the function if your overlay happens to be included before the lib overlay…</p>
 <p>After some investigations, it turns out the reason behind using <code>self</code> only for packages is <em>grafting</em>. And that concept, as well as its impact on the design of overlays, will be explored in the next post.</p>
-    </section>
 </article>
 ]]></description>
     <pubDate>Fri, 12 Jun 2020 00:00:00 UT</pubDate>
-    <guid>http://layus.github.io/posts/2020-06-12-nix-overlays.html</guid>
-    <dc:creator>layus</dc:creator>
+    <guid>http://blog.layus.be/posts/2020-06-12-nix-overlays.html</guid>
+    <dc:creator>Guillaume @layus Maudoux</dc:creator>
 </item>
 
     </channel>

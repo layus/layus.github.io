@@ -27,6 +27,7 @@ jobs:
           signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
           # Only needed for private caches
           #authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
       - name: Build
         run: |
           nix-build
@@ -42,10 +43,9 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add .
-          git commit -m "Automatic updates from https://github.com/layus/layus.github.io/commit/${GITHUB_SHA}"
+          git commit --allow-empty  -m "Automatic updates from https://github.com/layus/layus.github.io/commit/${GITHUB_SHA}"
   
       - name: Release to master
-        if: success()
         uses: ad-m/github-push-action@v0.6.0
         with:
           # Token for the repo. Can be passed in using $\{{ secrets.GITHUB_TOKEN }}

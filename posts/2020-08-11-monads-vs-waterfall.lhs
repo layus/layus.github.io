@@ -1,6 +1,6 @@
 ---
 title: Monads vs. Waterfalls
-tags: [haskell monads advent]
+tags: [haskell, advent of code]
 ---
 
 Monads vs. Waterfalls

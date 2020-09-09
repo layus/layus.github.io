@@ -1,5 +1,6 @@
 ---
 title: "Nix overlays: the fixpoint and the (over)layer cake"
+tags: [nix]
 ---
 
 # The fixpoint and the (over)layer cake

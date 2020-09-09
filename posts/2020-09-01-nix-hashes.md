@@ -1,7 +1,7 @@
 ---
 title: How to Digest Nix Hashes ?
 author: layus
-tags: [nix digest hash]
+tags: [nix]
 ---
 
 They say there are two hard things in computing: cache invalidation and naming things. Alas, build systems fight against these two at the same time. Because caching build results is a central feature of most build systems, they are immediately concerned by cache invalidation issues. For naming things, it is less obvious. I used to understand the naming problem as related to concepts and source code variables. Finding the right name for a class, a function or a variable can be a real headache.

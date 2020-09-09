@@ -39,12 +39,15 @@ main = hakyll $ do
             >>= loadAndApplyTemplate "templates/default.html" defaultContext
             >>= relativizeUrls
 
+    -- Tags
+    tags <- buildTags "posts/*" (fromCapture "tags/*.html")
+
     match "posts/*" $ do
         route $ setExtension "html"
         compile $ pandocCompiler
-            >>= loadAndApplyTemplate "templates/post.html"    postCtx
+            >>= loadAndApplyTemplate "templates/post.html"    (postCtx tags)
             >>= saveSnapshot "content"
-            >>= loadAndApplyTemplate "templates/default.html" postCtx
+            >>= loadAndApplyTemplate "templates/default.html" (postCtx tags)
             >>= relativizeUrls
 
     create ["archive.html"] $ do
@@ -52,7 +55,7 @@ main = hakyll $ do
         compile $ do
             posts <- recentFirst =<< loadAll "posts/*"
             let archiveCtx =
-                    listField "posts" postCtx (return posts) `mappend`
+                    listField "posts" (postCtx tags) (return posts) `mappend`
                     constField "title" "Archives"            `mappend`
                     defaultContext
 
@@ -66,9 +69,11 @@ main = hakyll $ do
         route idRoute
         compile $ do
             posts <- recentFirst =<< loadAll "posts/*"
-            let indexCtx =
-                    listField "posts" postCtx (return posts) `mappend`
-                    defaultContext
+            let indexCtx = mconcat 
+                            [ listField "posts" (postCtx tags) (return posts)
+                            , field "tags" (\_ -> renderTagList tags)
+                            , defaultContext
+                            ]
 
             getResourceBody
                 >>= applyAsTemplate indexCtx
@@ -87,34 +92,74 @@ main = hakyll $ do
             >>= withItemBody (unixFilterLBS "convert" ["-density", "1200", "-trim", "PDF:-", "-flatten", "-resample", "300", "PNG:-"])
             >>= withItemBody (unixFilterLBS "exiftool" ["-all=", "-"])
 
-    create ["rss.xml"] $ do
-        route idRoute
-        compile (feedCompiler renderRss)
 
-    create ["atom.xml"] $ do
+    -- Feeds
+    create ["index.rss"] $ do
         route idRoute
-        compile (feedCompiler renderAtom)
+        compile (feedCompiler "posts/*" renderRss "All posts")
+
+    create ["index.atom"] $ do
+        route idRoute
+        compile (feedCompiler "posts/*" renderAtom "All posts")
+
+
+    -- Post tags
+    tagsRules tags $ \tag pattern -> do
+        let title = "Posts tagged '" <> tag <> "'"
+
+        -- Copied from posts, need to refactor
+        route idRoute
+        compile $ do
+            posts <- recentFirst =<< loadAll pattern
+            let ctx = constField "title" title <>
+                        listField "posts" (postCtx tags) (return posts) <>
+                        constField "tag" tag <>
+                        defaultContext
+            makeItem ""
+                >>= loadAndApplyTemplate "templates/tag.html" ctx
+                >>= loadAndApplyTemplate "templates/default.html" ctx
+                >>= relativizeUrls
+
+        -- Create RSS feed as well
+        version "rss" $ do
+            route   $ setExtension "rss"
+            compile $ feedCompiler pattern renderRss title
+
+        -- Create ATOM feed as well
+        version "atom" $ do
+            route   $ setExtension "atom"
+            compile $ feedCompiler pattern renderAtom title
 
 --------------------------------------------------------------------------------
-postCtx :: Context String
-postCtx =
-    dateField "date" "%B %e, %Y" `mappend`
-    defaultContext
+postCtx :: Tags -> Context String
+postCtx tags = mconcat
+    [ dateField "date" "%B %e, %Y"
+    , tagsField "tags" tags
+    , defaultContext
+    ]
 
-myFeedConfiguration :: FeedConfiguration
-myFeedConfiguration = FeedConfiguration
-    { feedTitle       = "Layus' short musings"
+feedCtx :: Context String
+feedCtx = mconcat
+    [ bodyField "description"
+    , Context $ \key -> case key of
+        "title" -> unContext (mapContext escapeHtml defaultContext) key
+        _       -> unContext mempty key
+    , defaultContext
+    ]
+
+feedConfiguration :: String -> FeedConfiguration
+feedConfiguration title = FeedConfiguration
+    { feedTitle       = "Layus' short musings - " <> title
     , feedDescription = "A blog about build systems, Nix and everything"
-    , feedAuthorName  = "layus"
+    , feedAuthorName  = "Guillaume @layus Maudoux"
     , feedAuthorEmail = "layus.on@gmail.com"
-    , feedRoot        = "http://layus.github.io"
+    , feedRoot        = "http://blog.layus.be"
     }
 
-feedCompiler render = do
-    let feedCtx = postCtx <> bodyField "description"
+feedCompiler pattern render title = do
     posts <- fmap (take 10) . recentFirst =<<
-        loadAllSnapshots "posts/*" "content"
-    render myFeedConfiguration feedCtx posts
+        loadAllSnapshots pattern "content"
+    render (feedConfiguration title) feedCtx posts
 
 pandocCompiler = pandocCompilerWithTransform defaultHakyllReaderOptions defaultHakyllWriterOptions filter
   where

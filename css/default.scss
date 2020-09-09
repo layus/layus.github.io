@@ -174,12 +174,9 @@ nav a {
 }
 
 footer {
-  padding-top: 1rem;
-  padding-bottom: 1rem;
-  //border-top: 1px solid #888;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
   text-align: right;
-  //grid-column: left / right;
-  //grid-row: content-bottom / bottom;
 }
 
 .comments {
@@ -276,7 +273,8 @@ nav a {
 h1 {
   font-size: 2.8rem;
   font-weight: bold;
-  letter-spacing: 0;
+  //letter-spacing: 0;
+  margin-top: 2.8rem;
   margin-bottom: 1rem;
   font-family: 'Playfair';
 }
@@ -290,6 +288,10 @@ h1 {
     font-size: 1.5rem;
     font-style: italic;
     color: $brown;
+}
+
+article header {
+    margin-top: 5rem;
 }
 
 .article-title {
@@ -306,13 +308,13 @@ h2 {
   margin-top: 2.2rem;
   margin-bottom: 0.4rem;
   color: $wheat;
-  font-family: 'Playfair';
+  //font-family: 'Playfair';
 }
 
 h3 {
   font-size: 2.1rem;
   margin-top: 1.6rem;
-  margin-bottom: 0.6rem;
+  margin-bottom: 0.4rem;
   color: #b84f62;
 }
 
@@ -325,8 +327,8 @@ h4 {
 
 .article-body p {
   font-size: 1.5rem;
-  font-family: 'Crimson', serif;
-  margin-bottom: 0.75rem;
+  //font-family: 'Crimson', serif;
+  margin-bottom: 0.4rem;
 }
 
 strong {
@@ -335,7 +337,7 @@ strong {
 
 footer {
   font-size: 1.3rem;
-  color: #444;
+  //color: #444;
 }
 
 code {

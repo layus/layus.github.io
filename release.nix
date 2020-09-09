@@ -50,7 +50,14 @@ in
       pkgs.niv
       pkgs.cacert # needed for niv
       pkgs.nix    # needed for niv
-      (pkgs.texlive.combine { inherit (pkgs.texlive) scheme-medium stackengine tikzmark; })
+      (
+        (pkgs.texlive.combine {
+          inherit (pkgs.texlive) scheme-medium stackengine tikzmark; 
+        }).overrideAttrs (oldAttrs: {
+          preferLocalBuild = false;
+          allowSubstitutes = true;
+        })
+      )
       pkgs.imagemagick
       pkgs.cabal-install
       pkgs.exiftool

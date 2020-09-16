@@ -1,18 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
     <title>Layus' short musings - All posts</title>
-    <link href="http://blog.layus.be/index.atom" rel="self" />
-    <link href="http://blog.layus.be" />
-    <id>http://blog.layus.be/index.atom</id>
+    <link href="https://blog.layus.be/index.atom" rel="self" />
+    <link href="https://blog.layus.be" />
+    <id>https://blog.layus.be/index.atom</id>
     <author>
-        <name>Guillaume @layus Maudoux</name>
+        <name>layus</name>
         <email>layus.on@gmail.com</email>
     </author>
     <updated>2020-09-01T00:00:00Z</updated>
     <entry>
     <title>How to Digest Nix Hashes ?</title>
-    <link href="http://blog.layus.be/posts/2020-09-01-nix-hashes.html" />
-    <id>http://blog.layus.be/posts/2020-09-01-nix-hashes.html</id>
+    <link href="https://blog.layus.be/posts/2020-09-01-nix-hashes.html" />
+    <id>https://blog.layus.be/posts/2020-09-01-nix-hashes.html</id>
     <published>2020-09-01T00:00:00Z</published>
     <updated>2020-09-01T00:00:00Z</updated>
     <summary type="html"><![CDATA[<article>
@@ -238,8 +238,8 @@ Derive([(&quot;out&quot;,&quot;/nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello
 </entry>
 <entry>
     <title>Monads vs. Waterfalls</title>
-    <link href="http://blog.layus.be/posts/2020-08-11-monads-vs-waterfall.html" />
-    <id>http://blog.layus.be/posts/2020-08-11-monads-vs-waterfall.html</id>
+    <link href="https://blog.layus.be/posts/2020-08-11-monads-vs-waterfall.html" />
+    <id>https://blog.layus.be/posts/2020-08-11-monads-vs-waterfall.html</id>
     <published>2020-08-11T00:00:00Z</published>
     <updated>2020-08-11T00:00:00Z</updated>
     <summary type="html"><![CDATA[<article>
@@ -423,8 +423,8 @@ Derive([(&quot;out&quot;,&quot;/nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello
 </entry>
 <entry>
     <title>Nix overlays: the fixpoint and the (over)layer cake</title>
-    <link href="http://blog.layus.be/posts/2020-06-12-nix-overlays.html" />
-    <id>http://blog.layus.be/posts/2020-06-12-nix-overlays.html</id>
+    <link href="https://blog.layus.be/posts/2020-06-12-nix-overlays.html" />
+    <id>https://blog.layus.be/posts/2020-06-12-nix-overlays.html</id>
     <published>2020-06-12T00:00:00Z</published>
     <updated>2020-06-12T00:00:00Z</updated>
     <summary type="html"><![CDATA[<article>

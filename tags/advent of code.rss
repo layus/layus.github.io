@@ -3,14 +3,14 @@
     xmlns:dc="http://purl.org/dc/elements/1.1/">
     <channel>
         <title>Layus' short musings - Posts tagged 'advent of code'</title>
-        <link>http://blog.layus.be</link>
+        <link>https://blog.layus.be</link>
         <description><![CDATA[A blog about build systems, Nix and everything]]></description>
-        <atom:link href="http://blog.layus.be/tags/advent%20of%20code.rss" rel="self"
+        <atom:link href="https://blog.layus.be/tags/advent%20of%20code.rss" rel="self"
                    type="application/rss+xml" />
         <lastBuildDate>Tue, 11 Aug 2020 00:00:00 UT</lastBuildDate>
         <item>
     <title>Monads vs. Waterfalls</title>
-    <link>http://blog.layus.be/posts/2020-08-11-monads-vs-waterfall.html</link>
+    <link>https://blog.layus.be/posts/2020-08-11-monads-vs-waterfall.html</link>
     <description><![CDATA[<article>
     <h1 id="monads-vs.-waterfalls">Monads vs. Waterfalls</h1>
 <p>I spent some times forging a solution to an advent of code problem (<a href="https://adventofcode.com/2018/day/17">day 17, 2018</a>). My initial algorithm was cluttered with updates to the same map, and maintaining the current position through an otherwise nice and simple recursive code. The result feels beatiful, and deserves its own spot in the internet.</p>
@@ -190,8 +190,8 @@
 </article>
 ]]></description>
     <pubDate>Tue, 11 Aug 2020 00:00:00 UT</pubDate>
-    <guid>http://blog.layus.be/posts/2020-08-11-monads-vs-waterfall.html</guid>
-    <dc:creator>Guillaume @layus Maudoux</dc:creator>
+    <guid>https://blog.layus.be/posts/2020-08-11-monads-vs-waterfall.html</guid>
+    <dc:creator>layus</dc:creator>
 </item>
 
     </channel>

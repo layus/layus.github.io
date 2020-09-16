@@ -1,18 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
     <title>Layus' short musings - Posts tagged 'haskell'</title>
-    <link href="http://blog.layus.be/tags/haskell.atom" rel="self" />
-    <link href="http://blog.layus.be" />
-    <id>http://blog.layus.be/tags/haskell.atom</id>
+    <link href="https://blog.layus.be/tags/haskell.atom" rel="self" />
+    <link href="https://blog.layus.be" />
+    <id>https://blog.layus.be/tags/haskell.atom</id>
     <author>
-        <name>Guillaume @layus Maudoux</name>
+        <name>layus</name>
         <email>layus.on@gmail.com</email>
     </author>
     <updated>2020-08-11T00:00:00Z</updated>
     <entry>
     <title>Monads vs. Waterfalls</title>
-    <link href="http://blog.layus.be/posts/2020-08-11-monads-vs-waterfall.html" />
-    <id>http://blog.layus.be/posts/2020-08-11-monads-vs-waterfall.html</id>
+    <link href="https://blog.layus.be/posts/2020-08-11-monads-vs-waterfall.html" />
+    <id>https://blog.layus.be/posts/2020-08-11-monads-vs-waterfall.html</id>
     <published>2020-08-11T00:00:00Z</published>
     <updated>2020-08-11T00:00:00Z</updated>
     <summary type="html"><![CDATA[<article>

@@ -151,9 +151,9 @@ feedConfiguration :: String -> FeedConfiguration
 feedConfiguration title = FeedConfiguration
     { feedTitle       = "Layus' short musings - " <> title
     , feedDescription = "A blog about build systems, Nix and everything"
-    , feedAuthorName  = "Guillaume @layus Maudoux"
+    , feedAuthorName  = "layus"
     , feedAuthorEmail = "layus.on@gmail.com"
-    , feedRoot        = "http://blog.layus.be"
+    , feedRoot        = "https://blog.layus.be"
     }
 
 feedCompiler pattern render title = do

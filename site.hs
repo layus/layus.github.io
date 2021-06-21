@@ -8,6 +8,8 @@ import           Data.ByteString.Lazy.UTF8 (toString, fromString)
 
 import           Text.Pandoc.Definition     as Pandoc
 import           Text.Pandoc.Walk           as Pandoc
+import           Text.Pandoc.Extensions     as Pandoc
+import           Text.Pandoc.Options        as Pandoc
 
 --------------------------------------------------------------------------------
 main :: IO ()
@@ -161,7 +163,21 @@ feedCompiler pattern render title = do
         loadAllSnapshots pattern "content"
     render (feedConfiguration title) feedCtx posts
 
-pandocCompiler = pandocCompilerWithTransform defaultHakyllReaderOptions defaultHakyllWriterOptions filter
+pandocReaderOptions = defaultHakyllReaderOptions
+    { readerExtensions = Pandoc.enableExtension Pandoc.Ext_citations $ readerExtensions defaultHakyllReaderOptions
+    , readerStripComments = True
+    }
+pandocWriterOptions = defaultHakyllWriterOptions
+
+pandocCompiler = do
+    --csl <- load "chicago.csl"
+    --bib <- load "refs.bib"
+   
+    getResourceBody 
+        >>= readPandocWith pandocReaderOptions
+        >>= return . filter
+        >>= return . writePandocWith pandocWriterOptions
+    
   where
     filter = Pandoc.walk wrapCode
 

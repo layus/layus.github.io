@@ -49,9 +49,9 @@ footer, header, hgroup, menu, nav, section {
 body {
 	line-height: 1;
 }
-ol, ul {
+/*ol, ul {
 	list-style: none;
-}
+}*/
 blockquote, q {
 	quotes: none;
 }
@@ -226,6 +226,22 @@ a {
   text-decoration: none;
 }
 
+sub, sup {
+  font-size: 75%;
+  line-height: 0;
+  position: relative;
+  vertical-align: baseline;
+}
+
+sup {
+  top: -0.5em;
+}
+
+sub {
+  bottom: -0.25em;
+}
+
+
 @font-face {
   font-family: Building;
   src: url(/fonts/Building_Typeface.ttf);
@@ -345,6 +361,39 @@ code {
   font-size: .8em;
 }
 
+
+blockquote {
+  background: #f9f9f9;
+  // border-left: 10px solid #ccc;
+  margin: 1em 0;
+  padding: 0.5em 10px;
+  quotes: "\201C""\201D"; //"\2018""\2019";
+}
+blockquote:before {
+  color: #ccc;
+  content: open-quote;
+  font-size: 4em;
+  line-height: 0.0em;
+  margin-right: 0.1em;
+  vertical-align: -0.3em;
+}
+blockquote :first-child {
+  display: inline;
+} 
+blockquote :first-child:after {
+  display: block;
+} 
+blockquote p {
+  display: inline-block;
+}
+
+blockquote div.cite {
+  text-align: right;
+}
+blockquote div.cite p {
+  margin: 0;
+}
+
 div.scroll-wrapper {
   overflow: auto;
   visibility: hidden;
@@ -371,7 +420,19 @@ code {
 ul, ol {
   padding-top: 0.5rem;
   padding-bottom: 0.5rem;
-  list-style: decimal;
+}
+ol {
+ list-style: decimal;
+}
+ul {
+  list-style: auto;
+}
+li > ul, li > ol {
+  margin-left: 20px;
+}
+
+section.footnotes p {
+  margin: .5em 0;
 }
 
 dd {

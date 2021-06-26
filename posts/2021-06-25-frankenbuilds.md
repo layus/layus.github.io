@@ -209,6 +209,8 @@ of identical results in various conditions, as well as the absence of any
 variation in the long run can give some confidence that the task is indeed
 reproducible.
 
+![](../images/frankenbuild_reproducible.png){.image-medium .center}
+
 Reproducibility is the holy grail of build systems. It makes caching perfectly
 efficient, gives perfect confidence in binary outputs, and trivially reduces
 provenance tracking. It's no wonder that binary package repositories strive to

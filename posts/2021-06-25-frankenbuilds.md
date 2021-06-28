@@ -169,10 +169,10 @@ The content addressed store initiative works around this issue, by maintaining a
 cache["B(A(src))"] = β'
 cache["A(src)"] = α
 
-cache["α"] = (α, from A(src))
-cache["α"] = (α', from A(src))
-cache["β"] = (β, from B(α))
-cache["β"] = (β', from B(α'))'
+cache["α"]  = (α,  from A(src))
+cache["α'"] = (α', from A(src))
+cache["β"]  = (β,  from B(α))
+cache["β'"] = (β', from B(α'))
 ```
 
 In this fashion, the provenance chain can be reconstructed from the cache, if all the entries are still present. Clients of the cache can thus avoid materializing frankenbuilds.
@@ -215,7 +215,7 @@ Reproducibility is the holy grail of build systems. It makes caching perfectly
 efficient, gives perfect confidence in binary outputs, and trivially reduces
 provenance tracking. It's no wonder that binary package repositories strive to
 eradicate nondeterminism in their tasks. Linux distributions even started the
-reproducible build initiative [@RBI] to experience and good practice in
+reproducible build initiative [@RBI] to share experience and good practice in
 reproducible package builds.
 
 

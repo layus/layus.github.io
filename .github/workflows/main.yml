@@ -3,9 +3,9 @@ name: CI
 
 on:
   push:
-    branches: [ dev ]
+    branches: [ main ]
   pull_request:
-    branches: [ dev ]
+    branches: [ main ]
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -16,7 +16,6 @@ jobs:
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2.3.4
         with:
           fetch-depth: 0
@@ -33,9 +32,9 @@ jobs:
           nix-build
           nix-shell --run "./result/bin/site build"
 
-      - name: Propagate changes to master
+      - name: Propagate changes to 'static' branch
         run: |
-          git checkout master
+          git checkout static
           rsync -a --filter='P _site/' --filter='P _cache/' --filter='P .git/' --filter='P .gitignore' --filter='P CNAME' --filter='P .github/' --filter='P .stack-work' --filter='P result' --filter='P site' --delete-excluded _site/ .
 
       - name: Commit files
@@ -44,8 +43,10 @@ jobs:
           git config --local user.name "GitHub Action"
           git add .
           git commit --allow-empty  -m "Automatic updates from https://github.com/layus/layus.github.io/commit/${GITHUB_SHA}"
-  
-      - name: Release to master
+
+
+      - name: Release to 'static'
+        if: ${{ github.event == 'push' }}
         uses: ad-m/github-push-action@v0.6.0
         with:
           # Token for the repo. Can be passed in using $\{{ secrets.GITHUB_TOKEN }}
@@ -53,7 +54,7 @@ jobs:
           # Repository name to push. Default or empty value represents current github repository (${GITHUB_REPOSITORY})
           #repository: ${GITHUB_REPOSITORY} 
           # Destination branch to push changes
-          #branch: # optional, default is master
+          branch: static
           # Determines if force push is used
           force: false
           # Determines if --tags is used

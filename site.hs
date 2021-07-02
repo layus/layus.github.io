@@ -1,10 +1,13 @@
 --------------------------------------------------------------------------------
 {-# LANGUAGE OverloadedStrings #-}
 import           Data.Monoid (mappend)
+import           Data.Maybe (isJust)
+import           Data.ByteString.Lazy.UTF8 (toString, fromString)
+
 import           Hakyll hiding (pandocCompiler)
 import           Hakyll.Web.Sass (sassCompiler)
 
-import           Data.ByteString.Lazy.UTF8 (toString, fromString)
+import           System.Environment (getEnvironment)
 
 import           Text.Pandoc.Definition     as Pandoc
 import           Text.Pandoc.Walk           as Pandoc
@@ -13,7 +16,7 @@ import           Text.Pandoc.Options        as Pandoc
 
 --------------------------------------------------------------------------------
 main :: IO ()
-main = hakyll $ do
+main = getEnvironment >>= \env -> hakyll $ do
     match "images/**" $ do
         route   idRoute
         compile copyFileCompiler
@@ -42,9 +45,9 @@ main = hakyll $ do
             >>= relativizeUrls
 
     -- Tags
-    tags <- buildTags "posts/*" (fromCapture "tags/*.html")
+    tags <- buildTagsWith (maybeGetTags env) "posts/*" (fromCapture "tags/*.html")
 
-    match "posts/*" $ do
+    matchMetadata "posts/*" (devOrPublished env) $ do
         route $ setExtension "html"
         compile $ pandocCompiler
             >>= loadAndApplyTemplate "templates/post.html"    (postCtx tags)
@@ -71,7 +74,7 @@ main = hakyll $ do
         route idRoute
         compile $ do
             posts <- recentFirst =<< loadAll "posts/*"
-            let indexCtx = mconcat 
+            let indexCtx = mconcat
                             [ listField "posts" (postCtx tags) (return posts)
                             , field "tags" (\_ -> renderTagList tags)
                             , defaultContext
@@ -133,6 +136,21 @@ main = hakyll $ do
             compile $ feedCompiler pattern renderAtom title
 
 --------------------------------------------------------------------------------
+
+
+devOrPublished :: [(String, String)] -> Metadata -> Bool
+devOrPublished env meta = isDevelopmentEnv || isPublished
+  where
+    isDevelopmentEnv = lookup "HAKYLL_ENV" env == Just "dev"
+    isPublished = isJust . lookupString "published" $ meta
+
+maybeGetTags env identifier = do
+    meta <- getMetadata identifier
+    if devOrPublished env meta
+    then getTags identifier
+    else pure []
+
+
 postCtx :: Tags -> Context String
 postCtx tags = mconcat
     [ dateField "date" "%B %e, %Y"
@@ -172,12 +190,12 @@ pandocWriterOptions = defaultHakyllWriterOptions
 pandocCompiler = do
     --csl <- load "chicago.csl"
     --bib <- load "refs.bib"
-   
-    getResourceBody 
+
+    getResourceBody
         >>= readPandocWith pandocReaderOptions
         >>= return . filter
         >>= return . writePandocWith pandocWriterOptions
-    
+
   where
     filter = Pandoc.walk wrapCode
 

@@ -2,6 +2,7 @@
 title: Reproducibility killed the frankenbuild
 author: Guillaume Maudoux
 tags: ["build systems", "nix"]
+published: 2021-06-25
 ---
 
 They have been around for far too long. It's about time to tackle those pesky frankenbuilds. Coined in 2016 by Esfahani et al. the term describes "builds where outputs from different build jobs can combine in inconsistent ways due to cache re-use".

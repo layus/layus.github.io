@@ -1,6 +1,7 @@
 ---
 title: Monads vs. Waterfalls
 tags: [haskell, advent of code]
+published: 2020-08-11
 ---
 
 Monads vs. Waterfalls

@@ -1,6 +1,7 @@
 ---
 title: "Nix overlays: the fixpoint and the (over)layer cake"
 tags: [nix]
+published: 2020-06-12
 ---
 
 # The fixpoint and the (over)layer cake

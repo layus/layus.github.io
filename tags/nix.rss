@@ -83,7 +83,7 @@ cache[&quot;β&#39;&quot;] = (β&#39;, from B(α&#39;))</code></pre>
 <p>From the niche frankenbuild issue, we have explored a large variety of build systems designs, and in particular nontrivial cache keying schemes. We have seen the conditions to create a monstrous frankenbuild, and various solutions to work around them when one really wants to live in the world of intensional keying schemes. Finally, we had a quick look at reproducibility, the ever escaping ideal in the world of build systems. Reproducibility, to paraphrase Terry Pratchett, didn’t just kill the frankenbuild, it threw it in the river with lead weights tied to its feet.</p>
 </article>
 ]]></description>
-    <pubDate>Fri, 25 Jun 2021 00:00:00 UT</pubDate>
+    <pubDate>2021-06-25</pubDate>
     <guid>https://blog.layus.be/posts/2021-06-25-frankenbuilds.html</guid>
     <dc:creator>layus</dc:creator>
 </item>
@@ -309,7 +309,7 @@ Derive([(&quot;out&quot;,&quot;/nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello
 <p>C/ The full log of hashes generated for out <code>pkgs.hello</code> example with the above logging patch is available on <a href="https://gist.github.com/551fcccf4ddc1a851bc818ad2d21f8fb">gist</a>.</p>
 </article>
 ]]></description>
-    <pubDate>Tue, 01 Sep 2020 00:00:00 UT</pubDate>
+    <pubDate>2020-09-01</pubDate>
     <guid>https://blog.layus.be/posts/2020-09-01-nix-hashes.html</guid>
     <dc:creator>layus</dc:creator>
 </item>
@@ -427,7 +427,7 @@ Derive([(&quot;out&quot;,&quot;/nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello
 <p>After some investigations, it turns out the reason behind using <code>self</code> only for packages is <em>grafting</em>. And that concept, as well as its impact on the design of overlays, will be explored in the next post.</p>
 </article>
 ]]></description>
-    <pubDate>Fri, 12 Jun 2020 00:00:00 UT</pubDate>
+    <pubDate>2020-06-12</pubDate>
     <guid>https://blog.layus.be/posts/2020-06-12-nix-overlays.html</guid>
     <dc:creator>layus</dc:creator>
 </item>

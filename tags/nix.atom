@@ -13,7 +13,7 @@
     <title>Reproducibility killed the frankenbuild</title>
     <link href="https://blog.layus.be/posts/2021-06-25-frankenbuilds.html" />
     <id>https://blog.layus.be/posts/2021-06-25-frankenbuilds.html</id>
-    <published>2021-06-25T00:00:00Z</published>
+    <published>2021-06-25</published>
     <updated>2021-06-25T00:00:00Z</updated>
     <summary type="html"><![CDATA[<article>
     <p>They have been around for far too long. It’s about time to tackle those pesky frankenbuilds. Coined in 2016 by Esfahani et al. the term describes “builds where outputs from different build jobs can combine in inconsistent ways due to cache re-use”.</p>
@@ -92,7 +92,7 @@ cache[&quot;β&#39;&quot;] = (β&#39;, from B(α&#39;))</code></pre>
     <title>How to Digest Nix Hashes ?</title>
     <link href="https://blog.layus.be/posts/2020-09-01-nix-hashes.html" />
     <id>https://blog.layus.be/posts/2020-09-01-nix-hashes.html</id>
-    <published>2020-09-01T00:00:00Z</published>
+    <published>2020-09-01</published>
     <updated>2020-09-01T00:00:00Z</updated>
     <summary type="html"><![CDATA[<article>
     <p>They say there are two hard things in computing: cache invalidation and naming things. Alas, build systems fight against these two at the same time. Because caching build results is a central feature of most build systems, they are immediately concerned by cache invalidation issues. For naming things, it is less obvious. I used to understand the naming problem as related to concepts and source code variables. Finding the right name for a class, a function or a variable can be a real headache.</p>
@@ -318,7 +318,7 @@ Derive([(&quot;out&quot;,&quot;/nix/store/ab1pfk338f6gzpglsirxhvji4g9w558i-hello
     <title>Nix overlays: the fixpoint and the (over)layer cake</title>
     <link href="https://blog.layus.be/posts/2020-06-12-nix-overlays.html" />
     <id>https://blog.layus.be/posts/2020-06-12-nix-overlays.html</id>
-    <published>2020-06-12T00:00:00Z</published>
+    <published>2020-06-12</published>
     <updated>2020-06-12T00:00:00Z</updated>
     <summary type="html"><![CDATA[<article>
     <h1 id="the-fixpoint-and-the-overlayer-cake">The fixpoint and the (over)layer cake</h1>

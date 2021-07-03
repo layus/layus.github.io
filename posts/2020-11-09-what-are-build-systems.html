@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Am I a build system ?</title>
+        <link rel="stylesheet" href="../css/default.css" />
+        <link rel="stylesheet" href="../css/syntax.css" />
+    </head>
+    <body>
+        <div id="navigation">
+            <header class="logo">
+                <a href="../about.html">
+                    <img src="../images/layus.png" alt style="width: 15rem;" />
+                </a>
+            </header>
+            <nav>
+                <a href="../">Home</a>
+                <a href="../about.html">About</a>
+                <a href="../contact.html">Contact</a>
+                <a href="../archive.html">Archive</a>
+            </nav>
+        </div>
+        <div id="content">
+            <header>
+                <h1>Am I a build system ?</h1>
+                <footer>
+                    
+                        Posted on November  9, 2020
+                        
+                        .
+                    
+                    
+                </footer>
+            </header>
+            <main role="main">
+                <article>
+    <p>In the quest of defining what is a build system, we start by looking at existing definitions. We had to cast the net far and wide for there are few formal attempts at defining this widely used concept. Here are the four that we found.</p>
+<blockquote>
+<p>The build system is the set of build specification files used by the CI infrastructure (and developers) to generate project deliverables like binaries, libraries or packages […] from the source code. Moreover, the build system automates many other activities, such as test execution and sometimes deployment.</p>
+<p>A build system typically consists of a configuration layer and a construction layer. The configuration layer is used to select which features should be compiled and included in the resulting deliverables, as well as which build tools (e.g., compilers, interpreters) are necessary to compile those features. Once configured, the construction layer is used to specify the build tool invocations that are required to generate deliverables from source code. Since these build tool invocations are order-dependent […], a key responsibility of the construction layer is to invoke build tools while respecting their dependencies.</p>
+<p>[…]</p>
+<div class="cite">
+<p>– <cite>Bram Adams and Shane McIntosh</cite>, <a href="http://mcis.polymtl.ca/publications/2016/fose.pdf#page=4">Modern Software Engineering in a Nutshell</a>.</p>
+</div>
+<div style="clear: both;"></div>
+
+</blockquote>
+<blockquote>
+<p>Build automation is the process of automating the creation of a software build and the associated processes including: compiling computer source code into binary code, packaging binary code, and running automated tests.</p>
+<div class="cite">
+<p>– Build Automation, <cite><a href="https://en.wikipedia.org/w/index.php?title=Build_automation&amp;oldid=996141938">Wikipedia</a></cite></p>
+</div>
+<div style="clear: both;"></div>
+
+</blockquote>
+<blockquote>
+<p>Build systems automate the execution of repeatable tasks, at a scale from individual users up to large organisations. (p.2)</p>
+<p>A build system takes a task description, a target key, and a store, and returns a new store in which the target key and all its dependencies have up-to-date values. (p.9)</p>
+<div class="cite">
+<p>– <cite>Andrey Mokhov, Neil Mitchell and Simon Peyton Jones</cite>, <a href="https://www.microsoft.com/en-us/research/uploads/prod/2018/03/build-systems.pdf">Build systems à la carte</a></p>
+</div>
+<div style="clear: both;"></div>
+
+</blockquote>
+<blockquote>
+<p>In this paper, a build system is any piece of software that provides facilities for constructing and parsing the DAG which represents the dependencies among files in a software project. (p.3)</p>
+<p>This paper is not focused on the aspect of building software related to configuration options as would typically be handled by software such as autoconf or kconfig, even though some of these features have been introduced into build systems billed as replacements for make (which itself does not have such features built-in). When the build system is invoked, it will input the DAG and current filesystem state, and output a new DAG and/or files that represent the output of the build. (p.3)</p>
+<div class="cite">
+<p>– <cite>Mike Shal</cite>, <a href="http://gittup.org/tup/build_system_rules_and_algorithms.pdf#page=3">Build System Rules and Algorithms</a></p>
+</div>
+<div style="clear: both;"></div>
+
+</blockquote>
+<p>Build systems are a key part in modern software engineering pipeline[nutshell]. They grew organically from the need to encode knowledge about and automate all the tasks involved in the transformation of software sources into binary executables, test results and other artifacts that may be needed further down the development pipeline. The name “build system” itself seems to come from the idea that programs need to be built from their sources before finding any use. But there exists other tools which encounter similar problems and solve them using comparable algorithms. For example spreadsheets build their cells values from formulas. And some package mangers can build sets of interdependent packages from custom description formats.</p>
+<p>In our quest to define build systems, we would like to liberally include disparate software systems provided that their internal design choices can be compared. We would like to include single bash scripts that are used as build systems as well as task runners that do not call themselves build systems, and also various odd, corner case build automation tool such as [fabricate], [stroll] or [portage].</p>
+<p>We identified key concepts pertaining to build systems by reviewing four definitions found in the literature.</p>
+<ul>
+<li><p>Build systems serve a purpose of <strong>automation</strong>. They can be trusted in their operation and require minimal if any human assistance to deliver their result. Good build systems should operate quietly and reliably<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a>.</p></li>
+<li><p>Automation outlines the implicit existence of <strong>tasks</strong> to be automated. A build system supervises the execution of a delimited set of tasks. Build systems differ in the kind of tasks they expect and handle correctly, but they always expect tasks with a limited lifespan. Tools that manage the execution of long-standing processes such as web servers fall in the category of monitors and services managers. The completion of a build systems signals the end of all the managed tasks.</p></li>
+<li><p>This is because build systems view tasks as means to and end: producing build <strong>artefacts</strong>. Build systems supervise a bipartite graph of build tasks and build products, also know as a data flow graph<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a>. The nature of the data produced, and thus also consumed, by build system tasks encompasses env variables, strings, full docker images, software packages and files. The latter being the first that comes to mind when thinking about canonical build systems.</p></li>
+<li><p>Tasks are related to each other through <strong>dependencies</strong> on their productions. Build system have the responsibility to enforce and maintain a consistent execution order. While most build system expect a partial order, some are capable of handling preorders under certain assumptions. From a dependency graph perspective it means that most build systems will expect a directed acyclic graph of dependencies but that some provide support for dependency graphs with cycles.</p></li>
+<li><p>In some cases, build systems are not provided with the <strong>dependency graph</strong> upfront. To simplify the management of tasks interdependencies, some support automatic discovery of that graph dynamically. As much as the underlying graph of dependencies may be used as a reasoning tool, it does not have to be reified by build systems to execute the tasks.</p></li>
+<li><p>Build systems <strong>performance</strong>, particularly at large scale, may be important in certain contexts. We think however that there is no performance threshold or implementation optimisation that should exclude a given tool from entering the family of build systems. For an inefficient sorting algorithm is still a sorting algorithm, the same applies to build systems.</p></li>
+</ul>
+<p>This comparison with sorting algorithms hints at something running deeper. Build systems are tools defined by the similar problem they solve. We could consider a build system any tool that implements a scheduling algorithm for a set of tasks. Like sorting algorithms there are many variations depending on special properties of the input. Unlike sorting algorithms however, build system algorithms face <em>a lot</em> of variations in the input formats, expectations, and different implementations. </p>
+<h3 id="definition-of-build-system">Definition of build system</h3>
+<p>From all the aspects we forged the following definition.</p>
+<blockquote>
+<p>Build systems are software components that automate the generation of software products by scheduling the execution of a set of potentially interdependent processes.</p>
+</blockquote>
+<p>By this definition, we limit ourselves to the software world. Car assembly lines for example are not included, even though they do automate the production of products. It is important because physical artifacts come with extra constraints on their production. While, a newly generated file can overwrite the previous one, it is not the case for cars.</p>
+<p>Further on, the emphasis is put on software products, rather that on the processes that produce them. These processes are a means to an end, and not the subject of the build system. With this wording we exclude software systems devoted to start and monitor services. <code>Systemd</code>, Erlang monitors or the venerable <code>init</code> are out of scope because their focus is not on producing something, but on running something, and keeping it running.</p>
+<p>Nevertheless, the definition insists on tasks as the core issue to tackle. These tasks have interdependencies that must be taken into account, and are the sole way to produce the desired products. Task managers like <code>grunt</code> are included in this definition because that is exactly what they do. But as we may see in a future article, the outputs they produce consists more of effects on a system and not software products <em>per se</em>. That makes them a bit apart amongst build systems</p>
+<p>Finally, all the subtlety and the complexity of writing <em>“good”</em> build systems resides in the way they schedule the execution of the processes. The most important aspect of which is <em>incremental execution</em>. The technique consists in <em>not</em> running a task if it is not needed. Or conversely, running only tasks needed to regenerate outdated products.</p>
+<p>In future episodes, we will explore what makes a good schedule, how the choice of schedules is constrained by the upfront information about the processes, as well as the information that can be collected during and after their execution.</p>
+<p>This design space is interspersed with existing implementations that come with peculiar choices and specific solutions according to their main concern. The variety of approaches to this single problem is captivating. And that they all work only under a specific set of assumptions or requirements on their execution environment is thrilling.</p>
+<section class="footnotes" role="doc-endnotes">
+<hr />
+<ol>
+<li id="fn1" role="doc-endnote"><p>Ironically, this may explain why they are unloved[ALC]. They only get noticed when they are in the way, because it means that they do not live up to the expectations of their users.<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2" role="doc-endnote"><p>A Formal Definition of Data Flow Graph Models KRISHNAM KAVI, BILLP BUCKLES, ANDU NARAYANBHAT http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.589.9759<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section>
+</article>
+
+            </main>
+            <footer>
+                Site proudly generated by
+                <a href="http://jaspervdj.be/hakyll">Hakyll</a>
+            </footer>
+        </div>
+    </body>
+</html>

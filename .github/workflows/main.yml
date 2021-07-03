@@ -46,7 +46,7 @@ jobs:
 
 
       - name: Release to 'static'
-        if: ${{ github.event == 'push' }}
+        if: ${{ github.event_name == 'push' }}
         uses: ad-m/github-push-action@v0.6.0
         with:
           # Token for the repo. Can be passed in using $\{{ secrets.GITHUB_TOKEN }}

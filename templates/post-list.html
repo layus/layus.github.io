@@ -1,7 +1,7 @@
 <ul>
     $for(posts)$
         <li>
-            <a href="$url$">$title$</a> - $date$
+            <a href="$url$" $if(published)$$else$style="font-style: italic;"$endif$>$title$</a> - $date$
         </li>
     $endfor$
 </ul>

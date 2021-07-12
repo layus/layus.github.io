@@ -30,7 +30,7 @@ jobs:
       - name: Build
         run: |
           nix-build
-          nix-shell --run "./result/bin/site build"
+          nix-shell --command "./result/bin/site build"
 
       - name: Propagate changes to 'static' branch
         run: |

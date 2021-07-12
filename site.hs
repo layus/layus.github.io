@@ -8,6 +8,7 @@ import           Hakyll hiding (pandocCompiler)
 import           Hakyll.Web.Sass (sassCompiler)
 
 import           System.Environment (getEnvironment)
+import           System.IO
 
 import           Text.Pandoc.Definition     as Pandoc
 import           Text.Pandoc.Walk           as Pandoc
@@ -16,7 +17,13 @@ import           Text.Pandoc.Options        as Pandoc
 
 --------------------------------------------------------------------------------
 main :: IO ()
-main = getEnvironment >>= \env -> hakyll $ do
+main = do
+    hSetBuffering stdout NoBuffering
+    env <- getEnvironment
+    runHakyll env
+
+runHakyll :: [(String, String)] -> IO ()
+runHakyll env = hakyll $ do
     match "images/**" $ do
         route   idRoute
         compile copyFileCompiler

@@ -25,13 +25,13 @@ jobs:
           key: nix-${{ hashFiles('nix/sources.json') }}
           nix_file: 'default.nix'
       #- uses: cachix/install-nix-action@v13
-      #- uses: cachix/cachix-action@v10
-      #  with:
-      #    name: layus
-      #    signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
-      #    # Only needed for private caches
-      #    #authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-      #
+      - uses: cachix/cachix-action@v10
+        with:
+          name: layus
+          signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
+          # Only needed for private caches
+          #authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
       - name: Build
         run: |
           nix-build
